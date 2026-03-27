@@ -7,7 +7,6 @@ import org.apache.commons.lang3.ArrayUtils;
 
 public class ThrowExceptionFailureHandler implements FailureHandler {
 
-
     @Override
     public Object handle(LockFailureContext context) {
         String[] lockKeys = context.getLockKeys();
@@ -18,10 +17,14 @@ public class ThrowExceptionFailureHandler implements FailureHandler {
             throw new LockFailureException(lockKey);
         }
 
+        throw createException(exceptionClass, lockKey);
+    }
+
+    private RuntimeException createException(Class<? extends RuntimeException> exceptionClass, String lockKey) {
         try {
-            throw exceptionClass.getConstructor(String.class).newInstance(lockKey);
+            return exceptionClass.getConstructor(String.class).newInstance(lockKey);
         } catch (Exception e) {
-            throw new LockFailureException(lockKey);
+            return new LockFailureException(lockKey);
         }
     }
 }

@@ -3,6 +3,7 @@ package com.geek.lock.annotation;
 import com.geek.lock.core.FailureHandler;
 import com.geek.lock.core.KeyBuilder;
 import com.geek.lock.core.LockInterceptor;
+import com.geek.lock.core.LockProvider;
 import com.geek.lock.enums.KeyAbsentPolicy;
 import com.geek.lock.enums.LockType;
 import com.geek.lock.exception.LockFailureException;
@@ -95,7 +96,7 @@ public @interface Lock {
     /**
      * 指定 LockProvider 类型
      */
-    Class<? extends com.geek.lock.core.LockProvider> provider() default com.geek.lock.core.LockProvider.class;
+    Class<? extends LockProvider> provider() default LockProvider.class;
 
     /**
      * 拦截器类型

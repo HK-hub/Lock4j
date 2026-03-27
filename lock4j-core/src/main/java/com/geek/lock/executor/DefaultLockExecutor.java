@@ -53,6 +53,11 @@ public class DefaultLockExecutor extends AbstractLockExecutor implements Applica
     private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
     /**
+     * 锁拦截器
+     */
+    private static final LockInterceptor EMPTY_INTERCEPTOR = new LockInterceptor() {};
+
+    /**
      * LockProvider 工厂，用于获取锁提供者
      */
     private final LockProviderFactory providerFactory;
@@ -396,7 +401,7 @@ public class DefaultLockExecutor extends AbstractLockExecutor implements Applica
         Class<? extends LockInterceptor> interceptorClass = annotation.interceptor();
 
         if (interceptorClass == LockInterceptor.class) {
-            return new LockInterceptor() {};
+            return EMPTY_INTERCEPTOR;
         }
 
         if (nonNull(applicationContext)) {
