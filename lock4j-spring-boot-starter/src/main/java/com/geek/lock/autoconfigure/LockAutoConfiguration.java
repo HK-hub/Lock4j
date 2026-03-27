@@ -10,6 +10,7 @@ import com.geek.lock.executor.DefaultLockExecutor;
 import com.geek.lock.factory.DefaultLockProviderFactory;
 import com.geek.lock.factory.LockProviderFactory;
 import com.geek.lock.handler.ThrowExceptionFailureHandler;
+import com.geek.lock.template.LockTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -62,5 +63,11 @@ public class LockAutoConfiguration {
     @ConditionalOnMissingBean
     public LockAspect lockAspect(LockExecutor lockExecutor) {
         return new LockAspect(lockExecutor);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public LockTemplate lockTemplate(LockProviderFactory providerFactory) {
+        return new LockTemplate(providerFactory);
     }
 }
