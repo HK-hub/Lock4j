@@ -2,6 +2,7 @@ package com.geek.lock.annotation;
 
 import com.geek.lock.core.FailureHandler;
 import com.geek.lock.core.KeyBuilder;
+import com.geek.lock.core.LockInterceptor;
 import com.geek.lock.enums.KeyAbsentPolicy;
 import com.geek.lock.enums.LockType;
 import com.geek.lock.exception.LockFailureException;
@@ -95,4 +96,12 @@ public @interface Lock {
      * 指定 LockProvider 类型
      */
     Class<? extends com.geek.lock.core.LockProvider> provider() default com.geek.lock.core.LockProvider.class;
+
+    /**
+     * 拦截器类型
+     *
+     * <p>默认为空实现，可通过指定自定义拦截器类注入逻辑。
+     * 拦截器实例优先从Spring容器获取Bean，若无则反射创建。</p>
+     */
+    Class<? extends LockInterceptor> interceptor() default LockInterceptor.class;
 }
