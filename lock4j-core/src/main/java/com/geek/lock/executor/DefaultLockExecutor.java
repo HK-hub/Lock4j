@@ -4,6 +4,7 @@ import com.geek.lock.annotation.Lock;
 import com.geek.lock.core.AbstractLockExecutor;
 import com.geek.lock.core.FailureHandler;
 import com.geek.lock.core.KeyBuilder;
+import com.geek.lock.core.LockInterceptor;
 import com.geek.lock.core.LockProvider;
 import com.geek.lock.enums.KeyAbsentPolicy;
 import com.geek.lock.exception.NoSuchProviderException;
@@ -375,5 +376,43 @@ public class DefaultLockExecutor extends AbstractLockExecutor implements Applica
 
         // 调用失败处理器
         return handler.handle(context);
+    }
+
+    /**
+     * 解析拦截器
+     *
+     * <p>解析流程：
+     * <pre>
+     * 1. 如果拦截器类型为 LockInterceptor.class（默认值），返回空实现
+     * 2. 优先从 Spring 容器获取 Bean
+     * 3. 如果容器中无 Bean，通过反射创建实例
+     * </pre>
+     *
+     * @param annotation @Lock 注解配置
+     * @return LockInterceptor 实例
+     */
+    @Override
+    protected LockInterceptor resolveInterceptor(Lock annotation) {
+        Class<? extends LockInterceptor> interceptorClass = annotation.interceptor();
+
+        if (interceptorClass == LockInterceptor.class) {
+            return new LockInterceptor() {};
+        }
+
+        if (nonNull(applicationContext)) {
+            try {
+                return applicationContext.getBean(interceptorClass);
+            } catch (Exception e) {
+                log.debug("Interceptor bean not found in Spring container, trying reflection: {}",
+                    interceptorClass.getName());
+            }
+        }
+
+        try {
+            return interceptorClass.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                "Failed to instantiate interceptor: " + interceptorClass.getName(), e);
+        }
     }
 }
