@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="lock4j-local" />
+        <module name="lock4j-redisson" />
+        <module name="lock4j-etcd" />
+        <module name="lock4j-core" />
+        <module name="lock4j-spring-boot-starter" />
+        <module name="lock4j-zookeeper" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>

@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: lock4j-example
+
+lock4j:
+  enabled: true
+  default-provider: redisson
+  default-wait-time: 0
+  default-lease-time: 30000
+  redisson:
+    enabled: true
+
+logging:
+  level:
+    com.geek.lock: DEBUG
