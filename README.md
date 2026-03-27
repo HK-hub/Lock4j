@@ -83,33 +83,8 @@ lock4j:
 @Service
 public class OrderService {
 
-    // 基本使用 - SpEL 表达式
     @Lock(keys = "#orderId")
     public void processOrder(String orderId) {
-        // 业务逻辑
-    }
-
-    // 指定锁参数
-    @Lock(keys = "#userId", waitTime = 5000, leaseTime = 60000)
-    public void deductBalance(String userId) {
-        // 业务逻辑
-    }
-
-    // 使用派生注解
-    @RedissonLock(keys = "#orderId", lockType = LockType.FAIR)
-    public void processOrderWithFairLock(String orderId) {
-        // 业务逻辑
-    }
-
-    // 多 Key 加锁
-    @Lock(keys = {"#productId", "#warehouseId"})
-    public void deductStock(String productId, String warehouseId) {
-        // 业务逻辑
-    }
-
-    // 使用对象属性
-    @Lock(keys = "#order.id")
-    public void processOrder(Order order) {
         // 业务逻辑
     }
 }
@@ -125,76 +100,250 @@ public class OrderService {
 | **Etcd** | 可重入、公平 | jetcd 0.7.x | 云原生场景 |
 | **Local** | 可重入、公平、读写 | JDK ReentrantLock | 单进程使用 |
 
-## @Lock 注解属性
+## 使用示例
 
-| 属性 | 说明 | 默认值 |
-|------|------|--------|
-| `keys` | 锁 Key 数组，支持 SpEL | {} |
-| `keyBuilder` | 自定义 KeyBuilder 类型 | - |
-| `keyAbsentPolicy` | Key 缺失策略 | USE_METHOD_PATH |
-| `prefix` | 锁前缀 | "" |
-| `waitTime` | 等待获取锁时间(ms) | 3000 |
-| `leaseTime` | 锁过期时间(ms) | 30000 |
-| `timeUnit` | 时间单位 | MILLISECONDS |
-| `lockType` | 锁类型 | REENTRANT |
-| `failureHandler` | 加锁失败处理器 | ThrowException |
-| `failFast` | 失败异常类型 | LockFailureException |
-| `provider` | 指定 LockProvider | - |
-| `interceptor` | 拦截器 | - |
+### 基本使用
 
-## 高级用法
-
-### SpEL 表达式
+#### SpEL 表达式
 
 ```java
-// 方法参数
-@Lock(keys = "#orderId")
-public void process(String orderId) {}
+@Service
+public class OrderService {
 
-// 对象属性
-@Lock(keys = "#order.user.id")
-public void process(Order order) {}
+    // 方法参数
+    @Lock(keys = "#orderId")
+    public void processOrder(String orderId) {
+        // 业务逻辑
+    }
 
-// 多 Key
-@Lock(keys = {"#userId", "#orderId"})
-public void process(String userId, String orderId) {}
+    // 对象属性
+    @Lock(keys = "#order.id")
+    public void processOrder(Order order) {
+        // 业务逻辑
+    }
+
+    // 嵌套属性
+    @Lock(keys = "#order.user.id")
+    public void processOrderByUser(Order order) {
+        // 业务逻辑
+    }
+
+    // 多个 Key
+    @Lock(keys = {"#productId", "#warehouseId"})
+    public void deductStock(String productId, String warehouseId) {
+        // 业务逻辑
+    }
+}
+```
+
+#### 指定锁参数
+
+```java
+@Service
+public class PaymentService {
+
+    // 自定义等待时间和过期时间
+    @Lock(keys = "#orderId", waitTime = 5000, leaseTime = 60000)
+    public void processPayment(String orderId) {
+        // 业务逻辑
+    }
+
+    // 指定时间单位
+    @Lock(keys = "#orderId", waitTime = 5, leaseTime = 60, timeUnit = TimeUnit.SECONDS)
+    public void processPaymentWithSeconds(String orderId) {
+        // 业务逻辑
+    }
+
+    // 添加 Key 前缀
+    @Lock(keys = "#orderId", prefix = "order:lock:")
+    public void processOrderWithPrefix(String orderId) {
+        // 业务逻辑
+    }
+}
+```
+
+### 锁类型
+
+```java
+@Service
+public class ResourceService {
+
+    // 可重入锁（默认）
+    @Lock(keys = "#resourceId", lockType = LockType.REENTRANT)
+    public void processResource(String resourceId) {
+        // 业务逻辑
+    }
+
+    // 公平锁
+    @Lock(keys = "#resourceId", lockType = LockType.FAIR)
+    public void processWithFairLock(String resourceId) {
+        // 业务逻辑
+    }
+
+    // 读锁（共享锁）
+    @Lock(keys = "#resourceId", lockType = LockType.READ)
+    public String readResource(String resourceId) {
+        // 读取逻辑
+        return "data";
+    }
+
+    // 写锁（排他锁）
+    @Lock(keys = "#resourceId", lockType = LockType.WRITE)
+    public void writeResource(String resourceId, String data) {
+        // 写入逻辑
+    }
+}
+```
+
+### 派生注解
+
+每个 LockProvider 都有对应的派生注解，自动指定 Provider：
+
+```java
+@Service
+public class LockService {
+
+    // Redisson 锁
+    @RedissonLock(keys = "#id", lockType = LockType.FAIR)
+    public void processWithRedisson(String id) {
+        // 业务逻辑
+    }
+
+    // RedisTemplate 锁
+    @RedisTemplateLock(keys = "#id", waitTime = 3000, leaseTime = 30000)
+    public void processWithRedisTemplate(String id) {
+        // 业务逻辑
+    }
+
+    // Zookeeper 锁
+    @ZookeeperLock(keys = "#id", lockType = LockType.READ)
+    public String readWithZookeeper(String id) {
+        return "data";
+    }
+
+    // Etcd 锁
+    @EtcdLock(keys = "#id", lockType = LockType.FAIR)
+    public void processWithEtcd(String id) {
+        // 业务逻辑
+    }
+
+    // 本地锁
+    @LocalLock(keys = "#id")
+    public void processWithLocal(String id) {
+        // 业务逻辑
+    }
+}
 ```
 
 ### 自定义 KeyBuilder
 
+当 SpEL 表达式无法满足复杂场景时，可自定义 KeyBuilder：
+
 ```java
+// 1. 实现自定义 KeyBuilder
 @Component
 public class OrderKeyBuilder extends AbstractKeyBuilder {
+    
     @Override
-    protected String[] doBuild(Method method, String[] paramNames, 
+    protected String[] doBuild(Method method, String[] parameterNames, 
                                Object[] args, Lock annotation) {
-        return new String[]{"order:" + args[0]};
+        Order order = (Order) args[0];
+        String userId = (String) args[1];
+        // 根据业务逻辑构建 Key
+        return new String[]{
+            "order:" + order.getId(),
+            "user:" + userId
+        };
     }
 }
 
-@Lock(keyBuilder = OrderKeyBuilder.class)
-public void process(String orderId) {}
+// 2. 使用自定义 KeyBuilder
+@Service
+public class OrderService {
+
+    @Lock(keyBuilder = OrderKeyBuilder.class)
+    public void processOrder(Order order, String userId) {
+        // 业务逻辑
+    }
+}
 ```
 
 ### 失败处理
 
+#### 内置失败处理器
+
 ```java
+@Service
+public class OrderService {
+
+    // 默认：抛出 LockFailureException
+    @Lock(keys = "#orderId")
+    public void processOrder(String orderId) {
+        // 业务逻辑
+    }
+
+    // 抛出自定义异常
+    @Lock(keys = "#orderId", failFast = OrderLockException.class)
+    public void processOrderWithCustomException(String orderId) {
+        // 业务逻辑
+    }
+}
+```
+
+#### 自定义失败处理器
+
+```java
+// 1. 实现自定义失败处理器
 @Component
 public class RetryFailureHandler implements FailureHandler {
+    
+    private static final int MAX_RETRY = 3;
+    
     @Override
-    public Object handle(LockFailureContext ctx) {
-        // 自定义处理逻辑
+    public Object handle(LockFailureContext context) {
+        String[] keys = context.getLockKeys();
+        Method method = context.getMethod();
+        Object[] args = context.getArgs();
+        
+        log.warn("Lock failed for keys: {}, method: {}", 
+                 Arrays.toString(keys), method.getName());
+        
+        // 返回默认值
+        return getDefaultValue(method.getReturnType());
+    }
+    
+    private Object getDefaultValue(Class<?> returnType) {
+        if (returnType == boolean.class) return false;
+        if (returnType == int.class) return 0;
+        if (returnType == String.class) return "LOCK_FAILED";
         return null;
     }
 }
 
-@Lock(keys = "#id", failureHandler = RetryFailureHandler.class)
-public void process(String id) {}
+// 2. 使用自定义失败处理器
+@Service
+public class OrderService {
+
+    @Lock(keys = "#orderId", failureHandler = RetryFailureHandler.class)
+    public Order getOrder(String orderId) {
+        // 业务逻辑
+        return orderRepository.findById(orderId);
+    }
+    
+    // 失败时返回 null 而不是抛异常
+    @Lock(keys = "#orderId", failureHandler = RetryFailureHandler.class)
+    public String processOrder(String orderId) {
+        // 业务逻辑
+        return "SUCCESS";
+    }
+}
 ```
 
 ### 拦截器
 
 拦截器提供锁执行流程各阶段的钩子方法，可用于监控、日志、链路追踪等。
+
+#### 定义拦截器
 
 ```java
 @Component
@@ -202,93 +351,300 @@ public class LoggingLockInterceptor implements LockInterceptor {
     
     @Override
     public void beforeKeyBuild(Method method, Object[] args, Lock annotation) {
-        log.info("准备构建锁 Key, 方法: {}", method.getName());
+        log.info("[Lock] 准备构建 Key, 方法: {}, 参数: {}", 
+                 method.getName(), Arrays.toString(args));
     }
     
     @Override
     public void afterKeyBuild(List<String> keys) {
-        log.info("锁 Key 构建完成: {}", keys);
+        log.info("[Lock] Key 构建完成: {}", keys);
     }
     
     @Override
     public void beforeLock(List<String> keys, LockOptions options) {
-        log.info("尝试加锁: {}", keys);
+        log.info("[Lock] 尝试加锁: {}, 等待时间: {}ms, 租期: {}ms", 
+                 keys, options.getWaitTime(), options.getLeaseTime());
+    }
+    
+    @Override
+    public void afterLock(List<String> keys) {
+        log.debug("[Lock] 单个 Key 加锁操作完成: {}", keys);
     }
     
     @Override
     public void onLockSuccess(List<String> keys, LockKey lockKey) {
-        log.info("加锁成功: {}", lockKey.getKey());
+        log.info("[Lock] 加锁成功: {}", lockKey.getKey());
     }
     
     @Override
     public void onLockFailure(List<String> keys) {
-        log.warn("加锁失败: {}", keys);
+        log.warn("[Lock] 加锁失败: {}", keys);
     }
     
     @Override
     public void onException(List<String> keys, Throwable exception) {
-        log.error("执行异常: {}, keys: {}", exception.getMessage(), keys);
+        log.error("[Lock] 执行异常: {}, keys: {}", 
+                  exception.getMessage(), keys, exception);
     }
 }
-
-// 使用拦截器
-@Lock(keys = "#orderId", interceptor = LoggingLockInterceptor.class)
-public void processOrder(String orderId) {}
 ```
 
-**拦截器钩子执行顺序：**
+#### 使用拦截器
+
+```java
+@Service
+public class OrderService {
+
+    @Lock(keys = "#orderId", interceptor = LoggingLockInterceptor.class)
+    public void processOrder(String orderId) {
+        // 业务逻辑
+    }
+    
+    // 结合其他属性
+    @Lock(keys = "#orderId", 
+          interceptor = LoggingLockInterceptor.class,
+          waitTime = 5000,
+          leaseTime = 60000)
+    public Order processOrderWithLog(String orderId) {
+        // 业务逻辑
+        return order;
+    }
+}
+```
+
+#### 拦截器执行流程
 
 ```
-beforeKeyBuild → afterKeyBuild → beforeLock → afterLock → onLockSuccess/onLockFailure
-                                                              ↓
-                                                         onException (异常时)
+beforeKeyBuild(method, args, annotation)
+        ↓
+    解析 Key
+        ↓
+afterKeyBuild(keys)
+        ↓
+beforeLock(keys, options)
+        ↓
+    ┌─── 循环每个 Key ───┐
+    │                    │
+    │  afterLock(key)    │
+    │        ↓           │
+    │   尝试加锁          │
+    │        ↓           │
+    │  成功 → onLockSuccess(key, lockKey)
+    │  失败 → onLockFailure(keys) → 失败处理
+    │                    │
+    └────────────────────┘
+        ↓
+   执行业务方法
+        ↓
+    成功 → 返回结果
+    异常 → onException(keys, exception)
 ```
 
 ### 事件监听
 
+通过 Spring 事件机制监听锁的生命周期事件：
+
 ```java
 @Component
 public class LockEventListener {
-    
+
     @EventListener
     public void onLockEvent(LockEvent event) {
-        switch (event.getType()) {
-            case BEFORE_LOCK -> log.info("加锁开始: {}", event.getKeys());
-            case AFTER_LOCK -> log.info("加锁成功: {}", event.getKeys());
-            case LOCK_FAILED -> log.warn("加锁失败: {}", event.getKeys());
+        LockEventType type = event.getType();
+        List<String> keys = event.getKeys();
+        
+        switch (type) {
+            case BEFORE_LOCK:
+                log.info("加锁开始: {}", keys);
+                metrics.increment("lock.attempt");
+                break;
+                
+            case AFTER_LOCK:
+                log.info("加锁成功: {}", keys);
+                metrics.increment("lock.success");
+                break;
+                
+            case LOCK_FAILED:
+                log.warn("加锁失败: {}", keys);
+                metrics.increment("lock.failed");
+                break;
+                
+            case LOCK_ERROR:
+                log.error("加锁错误: {}", keys);
+                metrics.increment("lock.error");
+                break;
+                
+            case BEFORE_UNLOCK:
+                log.debug("准备解锁: {}", keys);
+                break;
+                
+            case AFTER_UNLOCK:
+                log.debug("解锁完成: {}", keys);
+                break;
         }
     }
 }
 ```
 
-### 派生注解
+### Key 缺失策略
+
+当 `keys` 和 `keyBuilder` 都为空时的处理策略：
 
 ```java
-// Redisson 锁
-@RedissonLock(keys = "#id", lockType = LockType.FAIR)
-public void process(String id) {}
+@Service
+public class DefaultKeyService {
 
-// RedisTemplate 锁
-@RedisTemplateLock(keys = "#id")
-public void process(String id) {}
+    // 使用方法全限定名作为 Key（默认）
+    @Lock
+    public void processWithDefaultKey() {
+        // Key = "com.example.DefaultKeyService.processWithDefaultKey"
+    }
 
-// Zookeeper 锁
-@ZookeeperLock(keys = "#id", lockType = LockType.READ)
-public void read(String id) {}
+    // 使用方法全限定名作为 Key，自定义超时
+    @Lock(leaseTime = 60000)
+    public void processWithLongLease() {
+        // 业务逻辑
+    }
 
-// Etcd 锁
-@EtcdLock(keys = "#id")
-public void process(String id) {}
-
-// 本地锁
-@LocalLock(keys = "#id")
-public void process(String id) {}
+    // Key 为空时抛出异常
+    @Lock(keyAbsentPolicy = KeyAbsentPolicy.THROW_EXCEPTION)
+    public void processWithStrictKey() {
+        // 如果未指定 keys，会抛出 IllegalArgumentException
+    }
+}
 ```
+
+### 指定 Provider
+
+当存在多个 LockProvider 时，可以指定使用哪个：
+
+```java
+@Service
+public class MultiProviderService {
+
+    // 使用默认 Provider（primary-provider 配置）
+    @Lock(keys = "#id")
+    public void processWithDefault(String id) {
+        // 业务逻辑
+    }
+
+    // 指定使用 Redisson
+    @Lock(keys = "#id", provider = RedissonLockProvider.class)
+    public void processWithRedisson(String id) {
+        // 业务逻辑
+    }
+
+    // 指定使用 RedisTemplate
+    @Lock(keys = "#id", provider = RedisTemplateLockProvider.class)
+    public void processWithRedisTemplate(String id) {
+        // 业务逻辑
+    }
+
+    // 指定使用 Zookeeper
+    @Lock(keys = "#id", provider = ZookeeperLockProvider.class)
+    public void processWithZookeeper(String id) {
+        // 业务逻辑
+    }
+
+    // 指定使用本地锁
+    @Lock(keys = "#id", provider = LocalLockProvider.class)
+    public void processWithLocal(String id) {
+        // 业务逻辑
+    }
+}
+```
+
+### 综合示例
+
+```java
+@Service
+public class ComprehensiveOrderService {
+
+    private final OrderRepository orderRepository;
+    
+    /**
+     * 完整的锁使用示例
+     * - 使用 SpEL 表达式构建 Key
+     * - 添加前缀
+     * - 自定义等待时间和租期
+     * - 使用公平锁
+     * - 添加拦截器
+     * - 自定义失败处理
+     */
+    @Lock(
+        keys = "#order.id",
+        prefix = "order:process:",
+        waitTime = 5000,
+        leaseTime = 60000,
+        lockType = LockType.FAIR,
+        interceptor = LoggingLockInterceptor.class,
+        failureHandler = RetryFailureHandler.class
+    )
+    public Order processOrder(Order order) {
+        // 业务逻辑
+        return orderRepository.save(order);
+    }
+    
+    /**
+     * 多 Key 加锁示例
+     * 同时锁定用户和订单
+     */
+    @Lock(
+        keys = {"#userId", "#orderId"},
+        prefix = "deduct:",
+        interceptor = LoggingLockInterceptor.class
+    )
+    public void deductBalance(String userId, String orderId, BigDecimal amount) {
+        // 扣减余额逻辑
+    }
+    
+    /**
+     * 读写锁示例
+     */
+    @Lock(
+        keys = "#productId",
+        lockType = LockType.READ,
+        provider = RedissonLockProvider.class
+    )
+    public Product getProduct(String productId) {
+        return orderRepository.findProductById(productId);
+    }
+    
+    @Lock(
+        keys = "#product.id",
+        lockType = LockType.WRITE,
+        provider = RedissonLockProvider.class
+    )
+    public Product updateProduct(Product product) {
+        return orderRepository.saveProduct(product);
+    }
+}
+```
+
+## @Lock 注解属性
+
+| 属性 | 说明 | 类型 | 默认值 |
+|------|------|------|--------|
+| `keys` | 锁 Key 数组，支持 SpEL | String[] | {} |
+| `keyBuilder` | 自定义 KeyBuilder 类型 | Class<? extends KeyBuilder> | KeyBuilder.class |
+| `keyAbsentPolicy` | Key 缺失策略 | KeyAbsentPolicy | USE_METHOD_PATH |
+| `prefix` | 锁 Key 前缀 | String | "" |
+| `waitTime` | 等待获取锁时间(ms) | long | 3000 |
+| `leaseTime` | 锁过期时间(ms) | long | 30000 |
+| `timeUnit` | 时间单位 | TimeUnit | MILLISECONDS |
+| `lockType` | 锁类型 | LockType | REENTRANT |
+| `failureHandler` | 加锁失败处理器 | Class<? extends FailureHandler> | FailureHandler.Default.class |
+| `failFast` | 失败异常类型 | Class<? extends RuntimeException> | LockFailureException.class |
+| `provider` | 指定 LockProvider | Class<? extends LockProvider> | LockProvider.class |
+| `interceptor` | 拦截器 | Class<? extends LockInterceptor> | LockInterceptor.class |
 
 ## 配置说明
 
+### 完整配置示例
+
 ```yaml
 lock4j:
+  # 全局配置
   enabled: true
   primary-provider: redissonLockProvider
   default-wait-time: 3000
@@ -300,16 +656,23 @@ lock4j:
     address: localhost:6379
     password: 
     database: 0
-    # 集群配置
+    connection-pool-size: 64
+    connection-minimum-idle-size: 10
+    timeout: 3000ms
+    # 单机模式
+    # address: localhost:6379
+    # 集群模式
     cluster:
       node-addresses:
         - redis://127.0.0.1:7000
         - redis://127.0.0.1:7001
-    # 哨兵配置
+        - redis://127.0.0.1:7002
+    # 哨兵模式
     sentinel:
       master-name: mymaster
       sentinel-addresses:
         - redis://127.0.0.1:26379
+        - redis://127.0.0.1:26380
 
   # RedisTemplate 配置
   redis:
@@ -318,6 +681,7 @@ lock4j:
     port: 6379
     password:
     database: 0
+    connect-timeout: 3000ms
 
   # Zookeeper 配置
   zookeeper:
@@ -325,12 +689,16 @@ lock4j:
     connect-string: localhost:2181
     session-timeout: 30000
     connection-timeout: 10000
+    base-path: /lock4j
 
   # Etcd 配置
   etcd:
     enabled: false
     endpoints:
       - http://localhost:2379
+    user:
+    password:
+    connect-timeout: 5000
 
   # 本地锁配置
   local:

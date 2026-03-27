@@ -83,33 +83,8 @@ lock4j:
 @Service
 public class OrderService {
 
-    // Basic usage - SpEL expression
     @Lock(keys = "#orderId")
     public void processOrder(String orderId) {
-        // business logic
-    }
-
-    // Specify lock parameters
-    @Lock(keys = "#userId", waitTime = 5000, leaseTime = 60000)
-    public void deductBalance(String userId) {
-        // business logic
-    }
-
-    // Use derived annotation
-    @RedissonLock(keys = "#orderId", lockType = LockType.FAIR)
-    public void processOrderWithFairLock(String orderId) {
-        // business logic
-    }
-
-    // Multi-key locking
-    @Lock(keys = {"#productId", "#warehouseId"})
-    public void deductStock(String productId, String warehouseId) {
-        // business logic
-    }
-
-    // Use object property
-    @Lock(keys = "#order.id")
-    public void processOrder(Order order) {
         // business logic
     }
 }
@@ -125,76 +100,250 @@ public class OrderService {
 | **Etcd** | Reentrant, Fair | jetcd 0.7.x | Cloud-native scenarios |
 | **Local** | Reentrant, Fair, Read/Write | JDK ReentrantLock | Single process |
 
-## @Lock Annotation Attributes
+## Usage Examples
 
-| Attribute | Description | Default |
-|-----------|-------------|---------|
-| `keys` | Lock key array, supports SpEL | {} |
-| `keyBuilder` | Custom KeyBuilder type | - |
-| `keyAbsentPolicy` | Key absent policy | USE_METHOD_PATH |
-| `prefix` | Lock key prefix | "" |
-| `waitTime` | Time to wait for lock (ms) | 3000 |
-| `leaseTime` | Lock expiration time (ms) | 30000 |
-| `timeUnit` | Time unit | MILLISECONDS |
-| `lockType` | Lock type | REENTRANT |
-| `failureHandler` | Lock failure handler | ThrowException |
-| `failFast` | Failure exception type | LockFailureException |
-| `provider` | Specify LockProvider | - |
-| `interceptor` | Interceptor | - |
+### Basic Usage
 
-## Advanced Usage
-
-### SpEL Expression
+#### SpEL Expression
 
 ```java
-// Method parameter
-@Lock(keys = "#orderId")
-public void process(String orderId) {}
+@Service
+public class OrderService {
 
-// Object property
-@Lock(keys = "#order.user.id")
-public void process(Order order) {}
+    // Method parameter
+    @Lock(keys = "#orderId")
+    public void processOrder(String orderId) {
+        // business logic
+    }
 
-// Multiple keys
-@Lock(keys = {"#userId", "#orderId"})
-public void process(String userId, String orderId) {}
+    // Object property
+    @Lock(keys = "#order.id")
+    public void processOrder(Order order) {
+        // business logic
+    }
+
+    // Nested property
+    @Lock(keys = "#order.user.id")
+    public void processOrderByUser(Order order) {
+        // business logic
+    }
+
+    // Multiple keys
+    @Lock(keys = {"#productId", "#warehouseId"})
+    public void deductStock(String productId, String warehouseId) {
+        // business logic
+    }
+}
+```
+
+#### Specify Lock Parameters
+
+```java
+@Service
+public class PaymentService {
+
+    // Custom wait time and lease time
+    @Lock(keys = "#orderId", waitTime = 5000, leaseTime = 60000)
+    public void processPayment(String orderId) {
+        // business logic
+    }
+
+    // Specify time unit
+    @Lock(keys = "#orderId", waitTime = 5, leaseTime = 60, timeUnit = TimeUnit.SECONDS)
+    public void processPaymentWithSeconds(String orderId) {
+        // business logic
+    }
+
+    // Add key prefix
+    @Lock(keys = "#orderId", prefix = "order:lock:")
+    public void processOrderWithPrefix(String orderId) {
+        // business logic
+    }
+}
+```
+
+### Lock Types
+
+```java
+@Service
+public class ResourceService {
+
+    // Reentrant lock (default)
+    @Lock(keys = "#resourceId", lockType = LockType.REENTRANT)
+    public void processResource(String resourceId) {
+        // business logic
+    }
+
+    // Fair lock
+    @Lock(keys = "#resourceId", lockType = LockType.FAIR)
+    public void processWithFairLock(String resourceId) {
+        // business logic
+    }
+
+    // Read lock (shared lock)
+    @Lock(keys = "#resourceId", lockType = LockType.READ)
+    public String readResource(String resourceId) {
+        // read logic
+        return "data";
+    }
+
+    // Write lock (exclusive lock)
+    @Lock(keys = "#resourceId", lockType = LockType.WRITE)
+    public void writeResource(String resourceId, String data) {
+        // write logic
+    }
+}
+```
+
+### Derived Annotations
+
+Each LockProvider has a corresponding derived annotation:
+
+```java
+@Service
+public class LockService {
+
+    // Redisson lock
+    @RedissonLock(keys = "#id", lockType = LockType.FAIR)
+    public void processWithRedisson(String id) {
+        // business logic
+    }
+
+    // RedisTemplate lock
+    @RedisTemplateLock(keys = "#id", waitTime = 3000, leaseTime = 30000)
+    public void processWithRedisTemplate(String id) {
+        // business logic
+    }
+
+    // Zookeeper lock
+    @ZookeeperLock(keys = "#id", lockType = LockType.READ)
+    public String readWithZookeeper(String id) {
+        return "data";
+    }
+
+    // Etcd lock
+    @EtcdLock(keys = "#id", lockType = LockType.FAIR)
+    public void processWithEtcd(String id) {
+        // business logic
+    }
+
+    // Local lock
+    @LocalLock(keys = "#id")
+    public void processWithLocal(String id) {
+        // business logic
+    }
+}
 ```
 
 ### Custom KeyBuilder
 
+When SpEL expressions cannot handle complex scenarios, implement a custom KeyBuilder:
+
 ```java
+// 1. Implement custom KeyBuilder
 @Component
 public class OrderKeyBuilder extends AbstractKeyBuilder {
+    
     @Override
-    protected String[] doBuild(Method method, String[] paramNames, 
+    protected String[] doBuild(Method method, String[] parameterNames, 
                                Object[] args, Lock annotation) {
-        return new String[]{"order:" + args[0]};
+        Order order = (Order) args[0];
+        String userId = (String) args[1];
+        // Build keys based on business logic
+        return new String[]{
+            "order:" + order.getId(),
+            "user:" + userId
+        };
     }
 }
 
-@Lock(keyBuilder = OrderKeyBuilder.class)
-public void process(String orderId) {}
+// 2. Use custom KeyBuilder
+@Service
+public class OrderService {
+
+    @Lock(keyBuilder = OrderKeyBuilder.class)
+    public void processOrder(Order order, String userId) {
+        // business logic
+    }
+}
 ```
 
 ### Failure Handling
 
+#### Built-in Failure Handlers
+
 ```java
+@Service
+public class OrderService {
+
+    // Default: throws LockFailureException
+    @Lock(keys = "#orderId")
+    public void processOrder(String orderId) {
+        // business logic
+    }
+
+    // Throw custom exception
+    @Lock(keys = "#orderId", failFast = OrderLockException.class)
+    public void processOrderWithCustomException(String orderId) {
+        // business logic
+    }
+}
+```
+
+#### Custom Failure Handler
+
+```java
+// 1. Implement custom failure handler
 @Component
 public class RetryFailureHandler implements FailureHandler {
+    
+    private static final int MAX_RETRY = 3;
+    
     @Override
-    public Object handle(LockFailureContext ctx) {
-        // Custom handling logic
+    public Object handle(LockFailureContext context) {
+        String[] keys = context.getLockKeys();
+        Method method = context.getMethod();
+        Object[] args = context.getArgs();
+        
+        log.warn("Lock failed for keys: {}, method: {}", 
+                 Arrays.toString(keys), method.getName());
+        
+        // Return default value
+        return getDefaultValue(method.getReturnType());
+    }
+    
+    private Object getDefaultValue(Class<?> returnType) {
+        if (returnType == boolean.class) return false;
+        if (returnType == int.class) return 0;
+        if (returnType == String.class) return "LOCK_FAILED";
         return null;
     }
 }
 
-@Lock(keys = "#id", failureHandler = RetryFailureHandler.class)
-public void process(String id) {}
+// 2. Use custom failure handler
+@Service
+public class OrderService {
+
+    @Lock(keys = "#orderId", failureHandler = RetryFailureHandler.class)
+    public Order getOrder(String orderId) {
+        // business logic
+        return orderRepository.findById(orderId);
+    }
+    
+    // Return null instead of throwing exception on failure
+    @Lock(keys = "#orderId", failureHandler = RetryFailureHandler.class)
+    public String processOrder(String orderId) {
+        // business logic
+        return "SUCCESS";
+    }
+}
 ```
 
 ### Interceptor
 
 Interceptors provide hooks at various stages of the lock execution flow for monitoring, logging, tracing, etc.
+
+#### Define Interceptor
 
 ```java
 @Component
@@ -202,93 +351,300 @@ public class LoggingLockInterceptor implements LockInterceptor {
     
     @Override
     public void beforeKeyBuild(Method method, Object[] args, Lock annotation) {
-        log.info("Preparing to build lock key, method: {}", method.getName());
+        log.info("[Lock] Preparing to build key, method: {}, args: {}", 
+                 method.getName(), Arrays.toString(args));
     }
     
     @Override
     public void afterKeyBuild(List<String> keys) {
-        log.info("Lock keys built: {}", keys);
+        log.info("[Lock] Key build complete: {}", keys);
     }
     
     @Override
     public void beforeLock(List<String> keys, LockOptions options) {
-        log.info("Attempting to lock: {}", keys);
+        log.info("[Lock] Attempting to lock: {}, waitTime: {}ms, leaseTime: {}ms", 
+                 keys, options.getWaitTime(), options.getLeaseTime());
+    }
+    
+    @Override
+    public void afterLock(List<String> keys) {
+        log.debug("[Lock] Single key lock operation complete: {}", keys);
     }
     
     @Override
     public void onLockSuccess(List<String> keys, LockKey lockKey) {
-        log.info("Lock acquired: {}", lockKey.getKey());
+        log.info("[Lock] Lock acquired: {}", lockKey.getKey());
     }
     
     @Override
     public void onLockFailure(List<String> keys) {
-        log.warn("Lock failed: {}", keys);
+        log.warn("[Lock] Lock failed: {}", keys);
     }
     
     @Override
     public void onException(List<String> keys, Throwable exception) {
-        log.error("Exception occurred: {}, keys: {}", exception.getMessage(), keys);
+        log.error("[Lock] Exception occurred: {}, keys: {}", 
+                  exception.getMessage(), keys, exception);
     }
 }
-
-// Use interceptor
-@Lock(keys = "#orderId", interceptor = LoggingLockInterceptor.class)
-public void processOrder(String orderId) {}
 ```
 
-**Interceptor Hook Execution Order:**
+#### Use Interceptor
+
+```java
+@Service
+public class OrderService {
+
+    @Lock(keys = "#orderId", interceptor = LoggingLockInterceptor.class)
+    public void processOrder(String orderId) {
+        // business logic
+    }
+    
+    // Combined with other attributes
+    @Lock(keys = "#orderId", 
+          interceptor = LoggingLockInterceptor.class,
+          waitTime = 5000,
+          leaseTime = 60000)
+    public Order processOrderWithLog(String orderId) {
+        // business logic
+        return order;
+    }
+}
+```
+
+#### Interceptor Execution Flow
 
 ```
-beforeKeyBuild → afterKeyBuild → beforeLock → afterLock → onLockSuccess/onLockFailure
-                                                              ↓
-                                                         onException (on error)
+beforeKeyBuild(method, args, annotation)
+        ↓
+    Parse Keys
+        ↓
+afterKeyBuild(keys)
+        ↓
+beforeLock(keys, options)
+        ↓
+    ┌─── Loop Each Key ───┐
+    │                     │
+    │  afterLock(key)     │
+    │        ↓            │
+    │  Try Lock           │
+    │        ↓            │
+    │  Success → onLockSuccess(key, lockKey)
+    │  Failure → onLockFailure(keys) → Failure Handler
+    │                     │
+    └─────────────────────┘
+        ↓
+ Execute Business Method
+        ↓
+    Success → Return Result
+    Exception → onException(keys, exception)
 ```
 
 ### Event Listening
 
+Listen to lock lifecycle events via Spring event mechanism:
+
 ```java
 @Component
 public class LockEventListener {
-    
+
     @EventListener
     public void onLockEvent(LockEvent event) {
-        switch (event.getType()) {
-            case BEFORE_LOCK -> log.info("Lock started: {}", event.getKeys());
-            case AFTER_LOCK -> log.info("Lock acquired: {}", event.getKeys());
-            case LOCK_FAILED -> log.warn("Lock failed: {}", event.getKeys());
+        LockEventType type = event.getType();
+        List<String> keys = event.getKeys();
+        
+        switch (type) {
+            case BEFORE_LOCK:
+                log.info("Lock starting: {}", keys);
+                metrics.increment("lock.attempt");
+                break;
+                
+            case AFTER_LOCK:
+                log.info("Lock acquired: {}", keys);
+                metrics.increment("lock.success");
+                break;
+                
+            case LOCK_FAILED:
+                log.warn("Lock failed: {}", keys);
+                metrics.increment("lock.failed");
+                break;
+                
+            case LOCK_ERROR:
+                log.error("Lock error: {}", keys);
+                metrics.increment("lock.error");
+                break;
+                
+            case BEFORE_UNLOCK:
+                log.debug("Preparing to unlock: {}", keys);
+                break;
+                
+            case AFTER_UNLOCK:
+                log.debug("Unlock complete: {}", keys);
+                break;
         }
     }
 }
 ```
 
-### Derived Annotations
+### Key Absent Policy
+
+Handling strategy when both `keys` and `keyBuilder` are empty:
 
 ```java
-// Redisson lock
-@RedissonLock(keys = "#id", lockType = LockType.FAIR)
-public void process(String id) {}
+@Service
+public class DefaultKeyService {
 
-// RedisTemplate lock
-@RedisTemplateLock(keys = "#id")
-public void process(String id) {}
+    // Use method fully qualified name as key (default)
+    @Lock
+    public void processWithDefaultKey() {
+        // Key = "com.example.DefaultKeyService.processWithDefaultKey"
+    }
 
-// Zookeeper lock
-@ZookeeperLock(keys = "#id", lockType = LockType.READ)
-public void read(String id) {}
+    // Use method fully qualified name as key with custom timeout
+    @Lock(leaseTime = 60000)
+    public void processWithLongLease() {
+        // business logic
+    }
 
-// Etcd lock
-@EtcdLock(keys = "#id")
-public void process(String id) {}
-
-// Local lock
-@LocalLock(keys = "#id")
-public void process(String id) {}
+    // Throw exception when key is absent
+    @Lock(keyAbsentPolicy = KeyAbsentPolicy.THROW_EXCEPTION)
+    public void processWithStrictKey() {
+        // Throws IllegalArgumentException if keys not specified
+    }
+}
 ```
+
+### Specify Provider
+
+When multiple LockProviders exist, specify which one to use:
+
+```java
+@Service
+public class MultiProviderService {
+
+    // Use default provider (primary-provider config)
+    @Lock(keys = "#id")
+    public void processWithDefault(String id) {
+        // business logic
+    }
+
+    // Specify Redisson
+    @Lock(keys = "#id", provider = RedissonLockProvider.class)
+    public void processWithRedisson(String id) {
+        // business logic
+    }
+
+    // Specify RedisTemplate
+    @Lock(keys = "#id", provider = RedisTemplateLockProvider.class)
+    public void processWithRedisTemplate(String id) {
+        // business logic
+    }
+
+    // Specify Zookeeper
+    @Lock(keys = "#id", provider = ZookeeperLockProvider.class)
+    public void processWithZookeeper(String id) {
+        // business logic
+    }
+
+    // Specify Local lock
+    @Lock(keys = "#id", provider = LocalLockProvider.class)
+    public void processWithLocal(String id) {
+        // business logic
+    }
+}
+```
+
+### Comprehensive Example
+
+```java
+@Service
+public class ComprehensiveOrderService {
+
+    private final OrderRepository orderRepository;
+    
+    /**
+     * Complete lock usage example
+     * - SpEL expression for key building
+     * - Key prefix
+     * - Custom wait time and lease time
+     * - Fair lock
+     * - Interceptor
+     * - Custom failure handler
+     */
+    @Lock(
+        keys = "#order.id",
+        prefix = "order:process:",
+        waitTime = 5000,
+        leaseTime = 60000,
+        lockType = LockType.FAIR,
+        interceptor = LoggingLockInterceptor.class,
+        failureHandler = RetryFailureHandler.class
+    )
+    public Order processOrder(Order order) {
+        // business logic
+        return orderRepository.save(order);
+    }
+    
+    /**
+     * Multi-key lock example
+     * Lock both user and order simultaneously
+     */
+    @Lock(
+        keys = {"#userId", "#orderId"},
+        prefix = "deduct:",
+        interceptor = LoggingLockInterceptor.class
+    )
+    public void deductBalance(String userId, String orderId, BigDecimal amount) {
+        // Balance deduction logic
+    }
+    
+    /**
+     * Read/Write lock example
+     */
+    @Lock(
+        keys = "#productId",
+        lockType = LockType.READ,
+        provider = RedissonLockProvider.class
+    )
+    public Product getProduct(String productId) {
+        return orderRepository.findProductById(productId);
+    }
+    
+    @Lock(
+        keys = "#product.id",
+        lockType = LockType.WRITE,
+        provider = RedissonLockProvider.class
+    )
+    public Product updateProduct(Product product) {
+        return orderRepository.saveProduct(product);
+    }
+}
+```
+
+## @Lock Annotation Attributes
+
+| Attribute | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `keys` | Lock key array, supports SpEL | String[] | {} |
+| `keyBuilder` | Custom KeyBuilder type | Class<? extends KeyBuilder> | KeyBuilder.class |
+| `keyAbsentPolicy` | Key absent policy | KeyAbsentPolicy | USE_METHOD_PATH |
+| `prefix` | Lock key prefix | String | "" |
+| `waitTime` | Time to wait for lock (ms) | long | 3000 |
+| `leaseTime` | Lock expiration time (ms) | long | 30000 |
+| `timeUnit` | Time unit | TimeUnit | MILLISECONDS |
+| `lockType` | Lock type | LockType | REENTRANT |
+| `failureHandler` | Lock failure handler | Class<? extends FailureHandler> | FailureHandler.Default.class |
+| `failFast` | Failure exception type | Class<? extends RuntimeException> | LockFailureException.class |
+| `provider` | Specify LockProvider | Class<? extends LockProvider> | LockProvider.class |
+| `interceptor` | Interceptor | Class<? extends LockInterceptor> | LockInterceptor.class |
 
 ## Configuration
 
+### Full Configuration Example
+
 ```yaml
 lock4j:
+  # Global config
   enabled: true
   primary-provider: redissonLockProvider
   default-wait-time: 3000
@@ -300,16 +656,23 @@ lock4j:
     address: localhost:6379
     password: 
     database: 0
-    # Cluster config
+    connection-pool-size: 64
+    connection-minimum-idle-size: 10
+    timeout: 3000ms
+    # Standalone mode
+    # address: localhost:6379
+    # Cluster mode
     cluster:
       node-addresses:
         - redis://127.0.0.1:7000
         - redis://127.0.0.1:7001
-    # Sentinel config
+        - redis://127.0.0.1:7002
+    # Sentinel mode
     sentinel:
       master-name: mymaster
       sentinel-addresses:
         - redis://127.0.0.1:26379
+        - redis://127.0.0.1:26380
 
   # RedisTemplate config
   redis:
@@ -318,6 +681,7 @@ lock4j:
     port: 6379
     password:
     database: 0
+    connect-timeout: 3000ms
 
   # Zookeeper config
   zookeeper:
@@ -325,12 +689,16 @@ lock4j:
     connect-string: localhost:2181
     session-timeout: 30000
     connection-timeout: 10000
+    base-path: /lock4j
 
   # Etcd config
   etcd:
     enabled: false
     endpoints:
       - http://localhost:2379
+    user:
+    password:
+    connect-timeout: 5000
 
   # Local lock config
   local:
