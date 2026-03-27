@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class ZookeeperLockProvider extends AbstractLockProvider {
 
-    private static final String NAME = "zookeeper";
     private static final String LOCK_PATH_PREFIX = "/lock4j/";
 
     private final CuratorFramework curatorFramework;
@@ -53,11 +52,6 @@ public class ZookeeperLockProvider extends AbstractLockProvider {
         return lockType == LockType.REENTRANT
                 || lockType == LockType.READ
                 || lockType == LockType.WRITE;
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
     }
 
     private InterProcessMutex getLock(LockKey lockKey) {

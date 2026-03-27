@@ -2,16 +2,17 @@ package com.geek.lock.factory;
 
 import com.geek.lock.core.LockProvider;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 public interface LockProviderFactory {
 
     LockProvider getProvider(Class<? extends LockProvider> providerClass);
 
-    LockProvider getDefaultProvider();
+    LockProvider getPrimaryProvider();
 
-    void registerProvider(String name, LockProvider provider);
+    LockProvider getFirstProvider();
 
-    void setDefaultProvider(String name);
+    boolean hasPrimaryProvider();
+
+    void registerProvider(LockProvider provider);
+
+    void setPrimaryProvider(Class<? extends LockProvider> providerClass);
 }

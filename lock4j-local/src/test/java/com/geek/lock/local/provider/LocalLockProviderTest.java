@@ -211,10 +211,4 @@ class LocalLockProviderTest {
         assertTrue(provider.supports(LockType.READ));
         assertTrue(provider.supports(LockType.WRITE));
     }
-
-    @Test
-    @DisplayName("getName 方法测试")
-    void testGetName() {
-        assertEquals("local", provider.getName());
-    }
 }

@@ -193,28 +193,56 @@ class DefaultLockExecutorTest {
         }
 
         @Test
-        @DisplayName("获取默认 Provider")
-        void testResolveDefaultProvider() {
+        @DisplayName("指定 Provider 不存在抛出异常")
+        void testSpecificProviderNotFound() {
             doReturn(null).when(providerFactory).getProvider(TestLockProvider.class);
-            doReturn(lockProvider).when(providerFactory).getDefaultProvider();
 
             Lock annotation = mock(Lock.class);
             doReturn(TestLockProvider.class).when(annotation).provider();
 
+            assertThrows(com.geek.lock.exception.NoSuchProviderException.class, () -> executor.resolveProvider(annotation));
+        }
+
+        @Test
+        @DisplayName("未指定 Provider 时使用 Primary Provider")
+        void testResolvePrimaryProvider() {
+            doReturn(true).when(providerFactory).hasPrimaryProvider();
+            doReturn(lockProvider).when(providerFactory).getPrimaryProvider();
+
+            Lock annotation = mock(Lock.class);
+            doReturn(LockProvider.class).when(annotation).provider();
+
             LockProvider result = executor.resolveProvider(annotation);
 
             assertNotNull(result);
-            verify(providerFactory).getDefaultProvider();
+            verify(providerFactory).hasPrimaryProvider();
+            verify(providerFactory).getPrimaryProvider();
+        }
+
+        @Test
+        @DisplayName("未设置 Primary Provider 时使用第一个 Provider")
+        void testResolveFirstProvider() {
+            doReturn(false).when(providerFactory).hasPrimaryProvider();
+            doReturn(lockProvider).when(providerFactory).getFirstProvider();
+
+            Lock annotation = mock(Lock.class);
+            doReturn(LockProvider.class).when(annotation).provider();
+
+            LockProvider result = executor.resolveProvider(annotation);
+
+            assertNotNull(result);
+            verify(providerFactory).hasPrimaryProvider();
+            verify(providerFactory).getFirstProvider();
         }
 
         @Test
         @DisplayName("无可用 Provider 抛出异常")
         void testNoProviderAvailable() {
-            doReturn(null).when(providerFactory).getProvider(TestLockProvider.class);
-            doReturn(null).when(providerFactory).getDefaultProvider();
+            doReturn(false).when(providerFactory).hasPrimaryProvider();
+            doReturn(null).when(providerFactory).getFirstProvider();
 
             Lock annotation = mock(Lock.class);
-            doReturn(TestLockProvider.class).when(annotation).provider();
+            doReturn(LockProvider.class).when(annotation).provider();
 
             assertThrows(IllegalStateException.class, () -> executor.resolveProvider(annotation));
         }
@@ -335,11 +363,6 @@ class DefaultLockExecutorTest {
         @Override
         public boolean supports(LockType lockType) {
             return true;
-        }
-
-        @Override
-        public String getName() {
-            return "test";
         }
     }
 

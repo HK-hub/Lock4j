@@ -1,8 +1,8 @@
 package com.geek.lock.core;
 
-import com.geek.lock.annotation.Lock;
 import com.geek.lock.enums.LockType;
 import com.geek.lock.model.LockOptions;
+import lombok.NonNull;
 
 import java.util.concurrent.TimeUnit;
 
@@ -13,8 +13,6 @@ public interface LockProvider extends java.util.concurrent.locks.Lock {
     void unlock(LockKey lockKey);
 
     boolean supports(LockType lockType);
-
-    String getName();
 
     @Override
     default void lock() {
@@ -32,7 +30,7 @@ public interface LockProvider extends java.util.concurrent.locks.Lock {
     }
 
     @Override
-    default boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+    default boolean tryLock(long time, @NonNull TimeUnit unit) throws InterruptedException {
         throw new UnsupportedOperationException("Use tryLock(LockKey, LockOptions) instead");
     }
 

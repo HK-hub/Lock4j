@@ -36,11 +36,11 @@ public class LockAutoConfiguration {
     @ConditionalOnMissingBean
     public LockProviderFactory lockProviderFactory(ObjectProvider<LockProvider> providers) {
         DefaultLockProviderFactory factory = new DefaultLockProviderFactory();
-        providers.forEach(provider -> factory.registerProvider(provider.getName(), provider));
+        providers.forEach(factory::registerProvider);
 
-        String defaultProvider = properties.getDefaultProvider();
-        if (defaultProvider != null && !defaultProvider.isEmpty()) {
-            factory.setDefaultProvider(defaultProvider);
+        Class<? extends LockProvider> primaryProvider = properties.getPrimaryProvider();
+        if (primaryProvider != null) {
+            factory.setPrimaryProvider(primaryProvider);
         }
 
         return factory;

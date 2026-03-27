@@ -14,8 +14,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class RedissonLockProvider extends AbstractLockProvider {
 
-    private static final String NAME = "redisson";
-
     private final RedissonClient redissonClient;
 
     public RedissonLockProvider(RedissonClient redissonClient, LockEventPublisher eventPublisher) {
@@ -50,11 +48,6 @@ public class RedissonLockProvider extends AbstractLockProvider {
                 || lockType == LockType.FAIR
                 || lockType == LockType.READ
                 || lockType == LockType.WRITE;
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
     }
 
     private RLock getLock(LockKey lockKey) {

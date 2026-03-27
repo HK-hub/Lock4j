@@ -17,8 +17,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class EtcdLockProvider extends AbstractLockProvider {
 
-    private static final String NAME = "etcd";
-
     private final Client etcdClient;
 
     public EtcdLockProvider(Client etcdClient, LockEventPublisher eventPublisher) {
@@ -57,10 +55,5 @@ public class EtcdLockProvider extends AbstractLockProvider {
     @Override
     public boolean supports(LockType lockType) {
         return lockType == LockType.REENTRANT || lockType == LockType.FAIR;
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
     }
 }

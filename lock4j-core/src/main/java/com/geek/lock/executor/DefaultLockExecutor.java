@@ -6,6 +6,7 @@ import com.geek.lock.core.FailureHandler;
 import com.geek.lock.core.KeyBuilder;
 import com.geek.lock.core.LockProvider;
 import com.geek.lock.enums.KeyAbsentPolicy;
+import com.geek.lock.exception.NoSuchProviderException;
 import com.geek.lock.factory.LockProviderFactory;
 import com.geek.lock.handler.ThrowExceptionFailureHandler;
 import com.geek.lock.model.LockFailureContext;
@@ -269,9 +270,13 @@ public class DefaultLockExecutor extends AbstractLockExecutor implements Applica
      * 
      * <p>解析流程：
      * <pre>
-     * 1. 根据注解配置的 Provider 类型获取对应的 Provider
-     * 2. 如果未找到，尝试获取默认 Provider
-     * 3. 如果仍然没有可用的 Provider，抛出异常
+     * 1. 如果注解指定了具体 Provider Class：
+     *    - 使用指定 Provider
+     *    - 如果找不到，抛出 NoSuchProviderException
+     * 2. 如果注解未指定 Provider（provider == LockProvider.class）：
+     *    - 优先使用 Primary Provider（如果存在）
+     *    - 如果 Primary Provider 不存在或未设置，使用第一个可用的 Provider
+     * 3. 如果没有任何可用的 Provider，抛出异常
      * </pre>
      *
      * @param annotation @Lock 注解配置
@@ -279,27 +284,29 @@ public class DefaultLockExecutor extends AbstractLockExecutor implements Applica
      */
     @Override
     protected LockProvider resolveProvider(Lock annotation) {
-        // 获取注解配置的 Provider 类型
         Class<? extends LockProvider> providerClass = annotation.provider();
         
-        // 尝试获取指定类型的 Provider
-        LockProvider provider = providerFactory.getProvider(providerClass);
-
-        // 如果找到指定的 Provider，直接返回
-        if (nonNull(provider)) {
-            return provider;
+        if (providerClass != LockProvider.class) {
+            LockProvider provider = providerFactory.getProvider(providerClass);
+            if (nonNull(provider)) {
+                return provider;
+            }
+            throw new NoSuchProviderException(providerClass);
         }
-
-        // 尝试获取默认 Provider
-        provider = providerFactory.getDefaultProvider();
         
-        // 如果找到默认 Provider，返回
-        if (nonNull(provider)) {
-            return provider;
+        if (providerFactory.hasPrimaryProvider()) {
+            LockProvider primaryProvider = providerFactory.getPrimaryProvider();
+            if (nonNull(primaryProvider)) {
+                return primaryProvider;
+            }
         }
-
-        // 没有可用的 Provider，抛出异常
-        throw new IllegalStateException("No LockProvider available");
+        
+        LockProvider firstProvider = providerFactory.getFirstProvider();
+        if (nonNull(firstProvider)) {
+            return firstProvider;
+        }
+        
+        throw new IllegalStateException("No LockProvider available. Please configure at least one LockProvider.");
     }
 
     /**

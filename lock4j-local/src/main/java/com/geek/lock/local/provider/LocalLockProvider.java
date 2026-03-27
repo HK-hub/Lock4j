@@ -15,8 +15,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @Slf4j
 public class LocalLockProvider extends AbstractLockProvider {
 
-    private static final String NAME = "local";
-
     private final ConcurrentHashMap<String, Lock> lockMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ReentrantReadWriteLock> readWriteLockMap = new ConcurrentHashMap<>();
 
@@ -55,11 +53,6 @@ public class LocalLockProvider extends AbstractLockProvider {
                 || lockType == LockType.FAIR
                 || lockType == LockType.READ
                 || lockType == LockType.WRITE;
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
     }
 
     private Lock getOrCreateLock(LockKey lockKey) {
