@@ -2,6 +2,7 @@ package com.geek.lock.template;
 
 import com.geek.lock.core.LockKey;
 import com.geek.lock.core.LockProvider;
+import com.geek.lock.exception.LockFailureException;
 import com.geek.lock.factory.LockProviderFactory;
 import com.geek.lock.model.LockOptions;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +15,14 @@ import static java.util.Objects.nonNull;
  * 编程式锁操作模板类
  *
  * <p>提供手动加锁和解锁的能力，允许用户精确控制锁的获取和释放时机。
- * 与注解方式不同，编程式锁让用户可以在业务代码中灵活地控制锁的范围。</p>
+ * 参考 JDK {@link java.util.concurrent.locks.Lock} 接口设计，提供两种风格的加锁方法：</p>
  *
- * <p>主要功能：
- * <ul>
- *     <li>获取锁：通过 {@link #lock(String, long, long)} 方法获取锁</li>
- *     <li>释放锁：通过 {@link #releaseLock(LockInfo)} 方法释放锁</li>
- *     <li>支持多种参数形式：简单参数、指定Provider、Builder方式</li>
- * </ul>
+ * <p>方法分类：
+ * <table border="1">
+ *   <tr><th>方法</th><th>获取失败时行为</th><th>适用场景</th></tr>
+ *   <tr><td>{@link #lock(String, long, long)}</td><td>抛出 {@link LockFailureException}</td><td>简单场景，失败直接抛异常</td></tr>
+ *   <tr><td>{@link #tryLock(String, long, long)}</td><td>返回 isAcquired=false 的 LockInfo</td><td>需要自行处理失败场景</td></tr>
+ * </table>
  *
  * <p>使用示例：
  * <pre>
@@ -31,41 +32,29 @@ import static java.util.Objects.nonNull;
  *     &#64;Autowired
  *     private LockTemplate lockTemplate;
  *
- *     public void doSomething(String userId) {
- *         // 查询操作，不上锁
- *         User user = userDao.findById(userId);
- *
- *         // 获取锁
+ *     // 方式1：lock() - 失败时抛异常
+ *     public void doSomethingSimple(String userId) {
  *         LockInfo lockInfo = lockTemplate.lock(userId, 30000, 5000);
- *         if (lockInfo == null || !lockInfo.isAcquired()) {
- *             throw new RuntimeException("业务处理中,请稍后再试");
- *         }
- *
  *         try {
- *             // 执行业务逻辑
- *             processBusiness(user);
+ *             processBusiness(userId);
  *         } finally {
- *             // 释放锁
  *             lockTemplate.releaseLock(lockInfo);
  *         }
  *     }
  *
- *     // 使用指定Provider
- *     public void doSomethingWithProvider(String userId) {
- *         LockInfo lockInfo = lockTemplate.lock(userId, 30000, 5000,
- *             RedissonLockProvider.class);
- *         // ...
- *     }
- *
- *     // 使用Builder方式
- *     public void doSomethingWithBuilder(String userId) {
- *         LockInfo lockInfo = lockTemplate.lock(LockRequest.builder()
- *             .key(userId)
- *             .leaseTime(30000)
- *             .waitTime(5000)
- *             .lockType(LockType.FAIR)
- *             .build());
- *         // ...
+ *     // 方式2：tryLock() - 失败时不抛异常，自行处理
+ *     public void doSomethingWithFallback(String userId) {
+ *         LockInfo lockInfo = lockTemplate.tryLock(userId, 30000, 5000);
+ *         if (!lockInfo.isAcquired()) {
+ *             // 自行处理获取失败的情况
+ *             log.warn("获取锁失败: {}", userId);
+ *             return;
+ *         }
+ *         try {
+ *             processBusiness(userId);
+ *         } finally {
+ *             lockTemplate.releaseLock(lockInfo);
+ *         }
  *     }
  * }
  * </pre>
@@ -73,7 +62,8 @@ import static java.util.Objects.nonNull;
  * <p>注意事项：
  * <ul>
  *     <li>务必在 finally 块中释放锁，避免锁泄漏</li>
- *     <li>获取锁失败时返回的 LockInfo 的 isAcquired() 为 false</li>
+ *     <li>lock() 方法失败时抛出 LockFailureException，需要捕获或向上抛出</li>
+ *     <li>tryLock() 方法失败时返回 isAcquired=false 的 LockInfo，需要自行判断</li>
  *     <li>释放锁时会自动检查锁是否可释放，无需手动判断</li>
  * </ul>
  *
@@ -81,6 +71,7 @@ import static java.util.Objects.nonNull;
  * @see LockRequest
  * @see LockProviderFactory
  * @see LockProvider
+ * @see LockFailureException
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -94,66 +85,125 @@ public class LockTemplate {
      */
     private final LockProviderFactory providerFactory;
 
+    // ==================== lock() 系列方法 - 获取失败时抛异常 ====================
+
     /**
-     * 使用默认Provider获取锁
+     * 获取锁，获取失败时抛出异常
      *
      * <p>使用配置的 Primary Provider 或第一个可用的 Provider 获取锁。
-     * 这是最简单的加锁方式，适用于大多数场景。</p>
+     * 如果在等待时间内未能获取锁，将抛出 {@link LockFailureException}。</p>
      *
-     * <p>参数说明：
-     * <ul>
-     *     <li>key: 锁的唯一标识，建议使用有业务意义的命名</li>
-     *     <li>leaseTime: 锁的持有时间（毫秒），默认建议 30秒</li>
-     *     <li>waitTime: 获取锁的等待时间（毫秒），默认建议 3秒</li>
-     * </ul>
+     * <p>此方法适用于简单场景，当获取锁失败时直接抛异常，由上层统一处理。
+     * 参考 JDK Lock.lock() 的设计思想。</p>
      *
      * @param key       锁的唯一标识
      * @param leaseTime 锁的持有时间（毫秒）
      * @param waitTime  获取锁的等待时间（毫秒）
-     * @return LockInfo 对象，包含锁的信息和获取状态；获取失败时返回 isAcquired() 为 false 的对象
+     * @return LockInfo 对象，包含锁的信息
      * @throws IllegalArgumentException 如果 key 为 null
      * @throws IllegalStateException    如果没有可用的 LockProvider
+     * @throws LockFailureException    如果获取锁失败
      */
     public LockInfo lock(String key, long leaseTime, long waitTime) {
         return lock(key, leaseTime, waitTime, null);
     }
 
     /**
-     * 使用指定Provider获取锁
+     * 使用指定Provider获取锁，获取失败时抛出异常
      *
-     * <p>显式指定使用的 LockProvider 类型，适用于需要特定锁实现的场景。
-     * 例如在有多个分布式锁实现时，可以指定使用 Redisson 或 Zookeeper。</p>
+     * <p>显式指定使用的 LockProvider 类型获取锁。
+     * 如果在等待时间内未能获取锁，将抛出 {@link LockFailureException}。</p>
      *
-     * <p>Provider 选择逻辑：
-     * <ul>
-     *     <li>如果指定了 providerClass，使用指定的 Provider</li>
-     *     <li>如果 providerClass 为 null 或 LockProvider.class，使用默认 Provider</li>
-     * </ul>
-     *
-     * @param key          锁的唯一标识
-     * @param leaseTime    锁的持有时间（毫秒）
-     * @param waitTime     获取锁的等待时间（毫秒）
+     * @param key           锁的唯一标识
+     * @param leaseTime     锁的持有时间（毫秒）
+     * @param waitTime      获取锁的等待时间（毫秒）
      * @param providerClass 锁提供者类型，为 null 时使用默认 Provider
-     * @return LockInfo 对象，包含锁的信息和获取状态
+     * @return LockInfo 对象，包含锁的信息
      * @throws IllegalArgumentException 如果 key 为 null
-     * @throws IllegalStateException    如果没有可用的 LockProvider 或指定的 Provider 不存在
+     * @throws IllegalStateException    如果没有可用的 LockProvider
+     * @throws LockFailureException    如果获取锁失败
      */
     public LockInfo lock(String key, long leaseTime, long waitTime,
                          Class<? extends LockProvider> providerClass) {
+        LockInfo lockInfo = tryLock(key, leaseTime, waitTime, providerClass);
+        if (!lockInfo.isAcquired()) {
+            throw new LockFailureException("Failed to acquire lock: " + key);
+        }
+        return lockInfo;
+    }
+
+    /**
+     * 使用LockRequest获取锁，获取失败时抛出异常
+     *
+     * <p>通过 LockRequest 对象配置加锁参数，支持更复杂的锁配置场景。
+     * 如果获取锁失败，将抛出 {@link LockFailureException}。</p>
+     *
+     * @param request 加锁请求参数对象
+     * @return LockInfo 对象，包含锁的信息
+     * @throws IllegalArgumentException 如果 request 为 null 或 key 为 null
+     * @throws IllegalStateException    如果没有可用的 LockProvider
+     * @throws LockFailureException    如果获取锁失败
+     */
+    public LockInfo lock(LockRequest request) {
+        LockInfo lockInfo = tryLock(request);
+        if (!lockInfo.isAcquired()) {
+            throw new LockFailureException("Failed to acquire lock: " + request.getKey());
+        }
+        return lockInfo;
+    }
+
+    // ==================== tryLock() 系列方法 - 获取失败时不抛异常 ====================
+
+    /**
+     * 尝试获取锁，获取失败时不抛异常
+     *
+     * <p>使用配置的 Primary Provider 或第一个可用的 Provider 尝试获取锁。
+     * 如果在等待时间内未能获取锁，返回 isAcquired=false 的 LockInfo，不抛出异常。</p>
+     *
+     * <p>此方法适用于需要自行处理获取失败场景的情况。
+     * 参考 JDK Lock.tryLock() 的设计思想。</p>
+     *
+     * @param key       锁的唯一标识
+     * @param leaseTime 锁的持有时间（毫秒）
+     * @param waitTime  获取锁的等待时间（毫秒）
+     * @return LockInfo 对象，包含锁的信息和获取状态
+     * @throws IllegalArgumentException 如果 key 为 null
+     * @throws IllegalStateException    如果没有可用的 LockProvider
+     */
+    public LockInfo tryLock(String key, long leaseTime, long waitTime) {
+        return tryLock(key, leaseTime, waitTime, null);
+    }
+
+    /**
+     * 使用指定Provider尝试获取锁，获取失败时不抛异常
+     *
+     * <p>显式指定使用的 LockProvider 类型尝试获取锁。
+     * 如果在等待时间内未能获取锁，返回 isAcquired=false 的 LockInfo，不抛出异常。</p>
+     *
+     * @param key           锁的唯一标识
+     * @param leaseTime     锁的持有时间（毫秒）
+     * @param waitTime      获取锁的等待时间（毫秒）
+     * @param providerClass 锁提供者类型，为 null 时使用默认 Provider
+     * @return LockInfo 对象，包含锁的信息和获取状态
+     * @throws IllegalArgumentException 如果 key 为 null
+     * @throws IllegalStateException    如果没有可用的 LockProvider
+     */
+    public LockInfo tryLock(String key, long leaseTime, long waitTime,
+                            Class<? extends LockProvider> providerClass) {
         LockRequest request = LockRequest.builder()
                 .key(key)
                 .leaseTime(leaseTime)
                 .waitTime(waitTime)
                 .provider(providerClass)
                 .build();
-        return lock(request);
+        return tryLock(request);
     }
 
     /**
-     * 使用LockRequest获取锁
+     * 使用LockRequest尝试获取锁，获取失败时不抛异常
      *
-     * <p>通过 LockRequest 对象配置加锁参数，支持更复杂的锁配置场景。
-     * 可以配置锁类型、时间单位、指定 Provider 等。</p>
+     * <p>通过 LockRequest 对象配置加锁参数，尝试获取锁。
+     * 如果获取锁失败，返回 isAcquired=false 的 LockInfo，不抛出异常。</p>
      *
      * <p>执行流程：
      * <ol>
@@ -169,7 +219,7 @@ public class LockTemplate {
      * @throws IllegalArgumentException 如果 request 为 null 或 key 为 null
      * @throws IllegalStateException    如果没有可用的 LockProvider
      */
-    public LockInfo lock(LockRequest request) {
+    public LockInfo tryLock(LockRequest request) {
         if (isNull(request) || isNull(request.getKey())) {
             throw new IllegalArgumentException("Lock key cannot be null");
         }
@@ -187,11 +237,14 @@ public class LockTemplate {
         return new LockInfo(lockKey, provider, acquired);
     }
 
+    // ==================== 释放锁 ====================
+
     /**
      * 释放锁
      *
-     * <p>释放通过 {@link #lock} 方法获取的锁。此方法会自动检查锁是否可释放，
-     * 无需用户手动判断。释放失败时会记录警告日志，不会抛出异常。</p>
+     * <p>释放通过 {@link #lock} 或 {@link #tryLock} 方法获取的锁。
+     * 此方法会自动检查锁是否可释放，无需用户手动判断。
+     * 释放失败时会记录警告日志，不会抛出异常。</p>
      *
      * <p>安全检查：
      * <ul>
@@ -222,6 +275,8 @@ public class LockTemplate {
             log.warn("Failed to release lock: {}", lockInfo.getLockKey().getKey(), e);
         }
     }
+
+    // ==================== 私有方法 ====================
 
     /**
      * 解析LockProvider
