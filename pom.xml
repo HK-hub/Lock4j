@@ -30,6 +30,7 @@
     <modules>
         <module>lock4j-core</module>
         <module>lock4j-redisson</module>
+        <module>lock4j-redis-template</module>
         <module>lock4j-zookeeper</module>
         <module>lock4j-etcd</module>
         <module>lock4j-local</module>
@@ -70,6 +71,11 @@
             <dependency>
                 <groupId>com.geek.lock</groupId>
                 <artifactId>lock4j-redisson</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.geek.lock</groupId>
+                <artifactId>lock4j-redis-template</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
