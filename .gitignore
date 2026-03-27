@@ -1,7 +1,9 @@
 # 编译后的 Class 文件
 *.class
-*.log
 *.ctxt
+
+# 日志文件
+*.log
 
 # 归档文件
 *.jar
@@ -34,3 +36,6 @@ build/
 .metadata/
 bin/
 tmp/
+
+# 文档
+docs/
