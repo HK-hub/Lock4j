@@ -1,0 +1,21 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: lock4j-example-etcd
+
+lock4j:
+  enabled: true
+  default-provider: etcd
+  default-wait-time: 0
+  default-lease-time: 30000
+  etcd:
+    enabled: true
+    endpoints:
+      - http://localhost:2379
+    connect-timeout: 5000
+
+logging:
+  level:
+    com.geek.lock: DEBUG

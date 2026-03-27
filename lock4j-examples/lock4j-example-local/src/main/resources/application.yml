@@ -1,0 +1,18 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: lock4j-example-local
+
+lock4j:
+  enabled: true
+  default-provider: local
+  default-wait-time: 0
+  default-lease-time: 30000
+  local:
+    enabled: true
+
+logging:
+  level:
+    com.geek.lock: DEBUG

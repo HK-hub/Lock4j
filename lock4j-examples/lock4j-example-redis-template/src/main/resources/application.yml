@@ -1,0 +1,24 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: lock4j-example-redis-template
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+
+lock4j:
+  enabled: true
+  default-provider: redis
+  default-wait-time: 0
+  default-lease-time: 30000
+  redis:
+    enabled: true
+
+logging:
+  level:
+    com.geek.lock: DEBUG
