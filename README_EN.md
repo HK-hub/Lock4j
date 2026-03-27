@@ -4,42 +4,42 @@
 [![Java](https://img.shields.io/badge/Java-17+-green.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
-[English](README_EN.md) | 中文
+中文 | [English](README_EN.md)
 
-基于 Spring Boot 的分布式锁框架，通过 `@Lock` 注解实现本地锁和分布式锁的一键加锁。
+A Spring Boot-based distributed lock framework that enables one-click locking via the `@Lock` annotation.
 
-## 特性
+## Features
 
-- 🚀 **简单易用** - 一个 `@Lock` 注解搞定分布式锁
-- 🔧 **多引擎支持** - Redisson、RedisTemplate、Zookeeper、Etcd、本地锁
-- 📝 **派生注解** - `@RedissonLock`、`@RedisTemplateLock`、`@ZookeeperLock`、`@EtcdLock`、`@LocalLock`
-- 🔑 **SpEL 表达式** - 灵活的 Key 构建，支持方法参数和对象属性
-- 🏗️ **自定义 KeyBuilder** - 复杂场景可扩展
-- 🔒 **多种锁类型** - 可重入锁、公平锁、读写锁
-- ⏱️ **Watchdog 自动续期** - 防止业务未执行完锁过期
-- 🎯 **失败处理** - 可自定义加锁失败处理策略
-- 🔌 **拦截器机制** - 流程钩子，支持监控、日志、链路追踪
-- 📡 **事件监听** - 锁生命周期事件发布
-- 🔄 **多 Key 加锁** - 支持同时对多个 Key 加锁
-- 🏗️ **Spring Boot 集成** - 自动配置，开箱即用
+- 🚀 **Easy to Use** - One `@Lock` annotation handles distributed locking
+- 🔧 **Multiple Engines** - Redisson, RedisTemplate, Zookeeper, Etcd, Local lock
+- 📝 **Derived Annotations** - `@RedissonLock`, `@RedisTemplateLock`, `@ZookeeperLock`, `@EtcdLock`, `@LocalLock`
+- 🔑 **SpEL Expression** - Flexible key building with method parameters and object properties
+- 🏗️ **Custom KeyBuilder** - Extensible for complex scenarios
+- 🔒 **Multiple Lock Types** - Reentrant, Fair, Read/Write locks
+- ⏱️ **Watchdog Auto-Renewal** - Prevents lock expiration during long operations
+- 🎯 **Failure Handling** - Customizable lock failure strategies
+- 🔌 **Interceptor Mechanism** - Lifecycle hooks for monitoring, logging, tracing
+- 📡 **Event Listening** - Lock lifecycle event publishing
+- 🔄 **Multi-Key Locking** - Lock multiple keys simultaneously
+- 🏗️ **Spring Boot Integration** - Auto-configuration, ready to use
 
-## 模块说明
+## Modules
 
 ```
 lock4j
-├── lock4j-core                    # 核心模块，定义接口和抽象类
-├── lock4j-redisson                # Redisson 实现 (Redis)
-├── lock4j-redis-template          # RedisTemplate 实现 (Redis)
-├── lock4j-zookeeper               # Zookeeper 实现 (Curator 5.x)
-├── lock4j-etcd                    # Etcd 实现 (jetcd 0.7.x)
-├── lock4j-local                   # 本地锁实现
-├── lock4j-spring-boot-starter     # Spring Boot 自动配置
-└── lock4j-examples                # 使用示例
+├── lock4j-core                    # Core module, interfaces and abstract classes
+├── lock4j-redisson                # Redisson implementation (Redis)
+├── lock4j-redis-template          # RedisTemplate implementation (Redis)
+├── lock4j-zookeeper               # Zookeeper implementation (Curator 5.x)
+├── lock4j-etcd                    # Etcd implementation (jetcd 0.7.x)
+├── lock4j-local                   # Local lock implementation
+├── lock4j-spring-boot-starter     # Spring Boot auto-configuration
+└── lock4j-examples                # Usage examples
 ```
 
-## 快速开始
+## Quick Start
 
-### 1. 添加依赖
+### 1. Add Dependency
 
 **Maven:**
 
@@ -50,7 +50,7 @@ lock4j
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
 
-<!-- 根据需要添加具体 Provider 依赖 -->
+<!-- Add a LockProvider dependency -->
 <dependency>
     <groupId>com.geek.lock</groupId>
     <artifactId>lock4j-redisson</artifactId>
@@ -65,7 +65,7 @@ implementation 'com.geek.lock:lock4j-spring-boot-starter:1.0.0-SNAPSHOT'
 implementation 'com.geek.lock:lock4j-redisson:1.0.0-SNAPSHOT'
 ```
 
-### 2. 配置 Provider
+### 2. Configure Provider
 
 ```yaml
 lock4j:
@@ -77,90 +77,90 @@ lock4j:
     address: localhost:6379
 ```
 
-### 3. 使用注解
+### 3. Use Annotation
 
 ```java
 @Service
 public class OrderService {
 
-    // 基本使用 - SpEL 表达式
+    // Basic usage - SpEL expression
     @Lock(keys = "#orderId")
     public void processOrder(String orderId) {
-        // 业务逻辑
+        // business logic
     }
 
-    // 指定锁参数
+    // Specify lock parameters
     @Lock(keys = "#userId", waitTime = 5000, leaseTime = 60000)
     public void deductBalance(String userId) {
-        // 业务逻辑
+        // business logic
     }
 
-    // 使用派生注解
+    // Use derived annotation
     @RedissonLock(keys = "#orderId", lockType = LockType.FAIR)
     public void processOrderWithFairLock(String orderId) {
-        // 业务逻辑
+        // business logic
     }
 
-    // 多 Key 加锁
+    // Multi-key locking
     @Lock(keys = {"#productId", "#warehouseId"})
     public void deductStock(String productId, String warehouseId) {
-        // 业务逻辑
+        // business logic
     }
 
-    // 使用对象属性
+    // Use object property
     @Lock(keys = "#order.id")
     public void processOrder(Order order) {
-        // 业务逻辑
+        // business logic
     }
 }
 ```
 
-## 支持的 LockProvider
+## Supported LockProviders
 
-| Provider | 锁类型 | 实现技术 | 说明 |
-|----------|--------|----------|------|
-| **Redisson** | 可重入、公平、读写 | Redisson 3.x | 功能最全，推荐使用 |
-| **RedisTemplate** | 可重入 | Lua 脚本 | 轻量级，依赖少 |
-| **Zookeeper** | 可重入、读写 | Curator 5.x | CP 一致性 |
-| **Etcd** | 可重入、公平 | jetcd 0.7.x | 云原生场景 |
-| **Local** | 可重入、公平、读写 | JDK ReentrantLock | 单进程使用 |
+| Provider | Lock Types | Implementation | Description |
+|----------|------------|----------------|-------------|
+| **Redisson** | Reentrant, Fair, Read/Write | Redisson 3.x | Full-featured, recommended |
+| **RedisTemplate** | Reentrant | Lua script | Lightweight, minimal dependencies |
+| **Zookeeper** | Reentrant, Read/Write | Curator 5.x | CP consistency |
+| **Etcd** | Reentrant, Fair | jetcd 0.7.x | Cloud-native scenarios |
+| **Local** | Reentrant, Fair, Read/Write | JDK ReentrantLock | Single process |
 
-## @Lock 注解属性
+## @Lock Annotation Attributes
 
-| 属性 | 说明 | 默认值 |
-|------|------|--------|
-| `keys` | 锁 Key 数组，支持 SpEL | {} |
-| `keyBuilder` | 自定义 KeyBuilder 类型 | - |
-| `keyAbsentPolicy` | Key 缺失策略 | USE_METHOD_PATH |
-| `prefix` | 锁前缀 | "" |
-| `waitTime` | 等待获取锁时间(ms) | 3000 |
-| `leaseTime` | 锁过期时间(ms) | 30000 |
-| `timeUnit` | 时间单位 | MILLISECONDS |
-| `lockType` | 锁类型 | REENTRANT |
-| `failureHandler` | 加锁失败处理器 | ThrowException |
-| `failFast` | 失败异常类型 | LockFailureException |
-| `provider` | 指定 LockProvider | - |
-| `interceptor` | 拦截器 | - |
+| Attribute | Description | Default |
+|-----------|-------------|---------|
+| `keys` | Lock key array, supports SpEL | {} |
+| `keyBuilder` | Custom KeyBuilder type | - |
+| `keyAbsentPolicy` | Key absent policy | USE_METHOD_PATH |
+| `prefix` | Lock key prefix | "" |
+| `waitTime` | Time to wait for lock (ms) | 3000 |
+| `leaseTime` | Lock expiration time (ms) | 30000 |
+| `timeUnit` | Time unit | MILLISECONDS |
+| `lockType` | Lock type | REENTRANT |
+| `failureHandler` | Lock failure handler | ThrowException |
+| `failFast` | Failure exception type | LockFailureException |
+| `provider` | Specify LockProvider | - |
+| `interceptor` | Interceptor | - |
 
-## 高级用法
+## Advanced Usage
 
-### SpEL 表达式
+### SpEL Expression
 
 ```java
-// 方法参数
+// Method parameter
 @Lock(keys = "#orderId")
 public void process(String orderId) {}
 
-// 对象属性
+// Object property
 @Lock(keys = "#order.user.id")
 public void process(Order order) {}
 
-// 多 Key
+// Multiple keys
 @Lock(keys = {"#userId", "#orderId"})
 public void process(String userId, String orderId) {}
 ```
 
-### 自定义 KeyBuilder
+### Custom KeyBuilder
 
 ```java
 @Component
@@ -176,14 +176,14 @@ public class OrderKeyBuilder extends AbstractKeyBuilder {
 public void process(String orderId) {}
 ```
 
-### 失败处理
+### Failure Handling
 
 ```java
 @Component
 public class RetryFailureHandler implements FailureHandler {
     @Override
     public Object handle(LockFailureContext ctx) {
-        // 自定义处理逻辑
+        // Custom handling logic
         return null;
     }
 }
@@ -192,9 +192,9 @@ public class RetryFailureHandler implements FailureHandler {
 public void process(String id) {}
 ```
 
-### 拦截器
+### Interceptor
 
-拦截器提供锁执行流程各阶段的钩子方法，可用于监控、日志、链路追踪等。
+Interceptors provide hooks at various stages of the lock execution flow for monitoring, logging, tracing, etc.
 
 ```java
 @Component
@@ -202,49 +202,49 @@ public class LoggingLockInterceptor implements LockInterceptor {
     
     @Override
     public void beforeKeyBuild(Method method, Object[] args, Lock annotation) {
-        log.info("准备构建锁 Key, 方法: {}", method.getName());
+        log.info("Preparing to build lock key, method: {}", method.getName());
     }
     
     @Override
     public void afterKeyBuild(List<String> keys) {
-        log.info("锁 Key 构建完成: {}", keys);
+        log.info("Lock keys built: {}", keys);
     }
     
     @Override
     public void beforeLock(List<String> keys, LockOptions options) {
-        log.info("尝试加锁: {}", keys);
+        log.info("Attempting to lock: {}", keys);
     }
     
     @Override
     public void onLockSuccess(List<String> keys, LockKey lockKey) {
-        log.info("加锁成功: {}", lockKey.getKey());
+        log.info("Lock acquired: {}", lockKey.getKey());
     }
     
     @Override
     public void onLockFailure(List<String> keys) {
-        log.warn("加锁失败: {}", keys);
+        log.warn("Lock failed: {}", keys);
     }
     
     @Override
     public void onException(List<String> keys, Throwable exception) {
-        log.error("执行异常: {}, keys: {}", exception.getMessage(), keys);
+        log.error("Exception occurred: {}, keys: {}", exception.getMessage(), keys);
     }
 }
 
-// 使用拦截器
+// Use interceptor
 @Lock(keys = "#orderId", interceptor = LoggingLockInterceptor.class)
 public void processOrder(String orderId) {}
 ```
 
-**拦截器钩子执行顺序：**
+**Interceptor Hook Execution Order:**
 
 ```
 beforeKeyBuild → afterKeyBuild → beforeLock → afterLock → onLockSuccess/onLockFailure
                                                               ↓
-                                                         onException (异常时)
+                                                         onException (on error)
 ```
 
-### 事件监听
+### Event Listening
 
 ```java
 @Component
@@ -253,39 +253,39 @@ public class LockEventListener {
     @EventListener
     public void onLockEvent(LockEvent event) {
         switch (event.getType()) {
-            case BEFORE_LOCK -> log.info("加锁开始: {}", event.getKeys());
-            case AFTER_LOCK -> log.info("加锁成功: {}", event.getKeys());
-            case LOCK_FAILED -> log.warn("加锁失败: {}", event.getKeys());
+            case BEFORE_LOCK -> log.info("Lock started: {}", event.getKeys());
+            case AFTER_LOCK -> log.info("Lock acquired: {}", event.getKeys());
+            case LOCK_FAILED -> log.warn("Lock failed: {}", event.getKeys());
         }
     }
 }
 ```
 
-### 派生注解
+### Derived Annotations
 
 ```java
-// Redisson 锁
+// Redisson lock
 @RedissonLock(keys = "#id", lockType = LockType.FAIR)
 public void process(String id) {}
 
-// RedisTemplate 锁
+// RedisTemplate lock
 @RedisTemplateLock(keys = "#id")
 public void process(String id) {}
 
-// Zookeeper 锁
+// Zookeeper lock
 @ZookeeperLock(keys = "#id", lockType = LockType.READ)
 public void read(String id) {}
 
-// Etcd 锁
+// Etcd lock
 @EtcdLock(keys = "#id")
 public void process(String id) {}
 
-// 本地锁
+// Local lock
 @LocalLock(keys = "#id")
 public void process(String id) {}
 ```
 
-## 配置说明
+## Configuration
 
 ```yaml
 lock4j:
@@ -294,24 +294,24 @@ lock4j:
   default-wait-time: 3000
   default-lease-time: 30000
 
-  # Redisson 配置
+  # Redisson config
   redisson:
     enabled: true
     address: localhost:6379
     password: 
     database: 0
-    # 集群配置
+    # Cluster config
     cluster:
       node-addresses:
         - redis://127.0.0.1:7000
         - redis://127.0.0.1:7001
-    # 哨兵配置
+    # Sentinel config
     sentinel:
       master-name: mymaster
       sentinel-addresses:
         - redis://127.0.0.1:26379
 
-  # RedisTemplate 配置
+  # RedisTemplate config
   redis:
     enabled: true
     host: localhost
@@ -319,25 +319,25 @@ lock4j:
     password:
     database: 0
 
-  # Zookeeper 配置
+  # Zookeeper config
   zookeeper:
     enabled: false
     connect-string: localhost:2181
     session-timeout: 30000
     connection-timeout: 10000
 
-  # Etcd 配置
+  # Etcd config
   etcd:
     enabled: false
     endpoints:
       - http://localhost:2379
 
-  # 本地锁配置
+  # Local lock config
   local:
     enabled: true
 ```
 
-## 架构设计
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -348,20 +348,20 @@ lock4j:
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                        LockAspect                           │
-│                   (AOP 切面拦截)                             │
+│                   (AOP interception)                        │
 └─────────────────────────────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    LockExecutor                             │
-│    (SpEL解析 / KeyBuilder / Interceptor / 失败处理)         │
+│    (SpEL parsing / KeyBuilder / Interceptor / FailHandler)  │
 │                                                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │  │ SpEL Parser │  │ KeyBuilder  │  │FailureHandler│         │
 │  └─────────────┘  └─────────────┘  └─────────────┘         │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              LockInterceptor (流程钩子)               │   │
+│  │              LockInterceptor (lifecycle hooks)       │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
                                │
@@ -378,7 +378,7 @@ lock4j:
     └──────────┘ └──────────┘   └──────────┘ └──────────┘
 ```
 
-## 技术栈
+## Tech Stack
 
 - JDK 17+
 - Spring Boot 3.x
@@ -388,14 +388,14 @@ lock4j:
 - jetcd 0.7.6
 - Lombok
 
-## 注意事项
+## Notes
 
-1. **锁 Key 设计** - 建议使用业务相关的唯一标识作为 Key
-2. **锁超时时间** - `leaseTime` 应大于业务执行时间
-3. **等待时间** - `waitTime` 需根据业务场景权衡
-4. **多 Key 加锁** - 采用全部加锁策略，必须获取所有锁才算成功
-5. **异常处理** - 业务方法抛出异常时，锁会自动释放
-6. **Watchdog** - 启用后自动续期，防止业务未执行完锁过期
+1. **Lock Key Design** - Use business-related unique identifiers as keys
+2. **Lock Timeout** - `leaseTime` should be greater than business execution time
+3. **Wait Time** - Balance `waitTime` based on business requirements
+4. **Multi-Key Locking** - Uses all-or-nothing strategy
+5. **Exception Handling** - Lock is automatically released on exception
+6. **Watchdog** - Auto-renews lock to prevent premature expiration
 
 ## License
 
