@@ -1,8 +1,8 @@
 package com.geek.lock.etcd.config;
 
 import com.geek.lock.core.LockProvider;
-import com.geek.lock.event.LockEventPublisher;
 import com.geek.lock.etcd.provider.EtcdLockProvider;
+import com.geek.lock.event.LockEventPublisher;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;

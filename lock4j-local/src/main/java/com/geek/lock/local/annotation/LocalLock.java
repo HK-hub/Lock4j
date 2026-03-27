@@ -3,6 +3,7 @@ package com.geek.lock.local.annotation;
 import com.geek.lock.annotation.Lock;
 import com.geek.lock.core.FailureHandler;
 import com.geek.lock.core.KeyBuilder;
+import com.geek.lock.core.LockProvider;
 import com.geek.lock.enums.KeyAbsentPolicy;
 import com.geek.lock.enums.LockType;
 import com.geek.lock.exception.LockFailureException;
@@ -54,5 +55,5 @@ public @interface LocalLock {
     Class<? extends RuntimeException> failFast() default LockFailureException.class;
 
     @AliasFor(annotation = Lock.class, attribute = "provider")
-    Class<? extends com.geek.lock.core.LockProvider> provider() default LocalLockProvider.class;
+    Class<? extends LockProvider> provider() default LocalLockProvider.class;
 }

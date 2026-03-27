@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.util.Collections;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -87,7 +88,7 @@ public class RedisTemplateLockProvider extends AbstractLockProvider {
         long current = System.currentTimeMillis();
 
         Long ttl = tryAcquire(key, leaseTime, lockName);
-        if (ttl == null) {
+        if (Objects.isNull(ttl)) {
             if (options.isEnableWatchdog()) {
                 scheduleExpirationRenewal(lockKey.getKey(), lockName);
             }
