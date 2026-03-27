@@ -1,4 +1,4 @@
-package com.geek.lock.etcd.annotation;
+package com.geek.lock.redis.annotation;
 
 import com.geek.lock.annotation.Lock;
 import com.geek.lock.core.FailureHandler;
@@ -7,23 +7,18 @@ import com.geek.lock.core.LockInterceptor;
 import com.geek.lock.core.LockProvider;
 import com.geek.lock.enums.KeyAbsentPolicy;
 import com.geek.lock.enums.LockType;
-import com.geek.lock.etcd.provider.EtcdLockProvider;
 import com.geek.lock.exception.LockFailureException;
+import com.geek.lock.redis.provider.RedisTemplateLockProvider;
 import org.springframework.core.annotation.AliasFor;
 
 import java.lang.annotation.*;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Etcd Lock 注解
- * 
- * <p>使用 Etcd 作为 LockProvider 的快捷注解。</p>
- */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Lock
-public @interface EtcdLock {
+public @interface RedisTemplateLock {
 
     @AliasFor(annotation = Lock.class, attribute = "keys")
     String[] keys() default {};
@@ -56,7 +51,7 @@ public @interface EtcdLock {
     Class<? extends RuntimeException> failFast() default LockFailureException.class;
 
     @AliasFor(annotation = Lock.class, attribute = "provider")
-    Class<? extends LockProvider> provider() default EtcdLockProvider.class;
+    Class<? extends LockProvider> provider() default RedisTemplateLockProvider.class;
 
     @AliasFor(annotation = Lock.class, attribute = "interceptor")
     Class<? extends LockInterceptor> interceptor() default LockInterceptor.class;
