@@ -5,7 +5,10 @@ import com.geek.lock.model.LockOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.nonNull;
@@ -43,51 +46,50 @@ public abstract class AbstractLockExecutor implements LockExecutor {
      */
     @Override
     public Object execute(ProceedingJoinPoint joinPoint, Lock annotation) throws Throwable {
-        // 步骤1：解析锁 Key
-        // 根据注解配置解析出需要加锁的 Key 数组
+        LockInterceptor interceptor = resolveInterceptor(annotation);
+        Method method = getMethod(joinPoint);
+        Object[] args = joinPoint.getArgs();
+
+        interceptor.beforeKeyBuild(method, args, annotation);
+
         String[] lockKeys = resolveLockKeys(joinPoint, annotation);
-        
-        // 如果没有锁 Key，直接执行业务方法
+        List<String> keys = Arrays.asList(lockKeys);
+
+        interceptor.afterKeyBuild(keys);
+
         if (lockKeys.length == 0) {
             return joinPoint.proceed();
         }
 
-        // 步骤2：获取 LockProvider
-        // 根据注解配置获取对应的锁提供者
         LockProvider provider = resolveProvider(annotation);
-        
-        // 用于记录已成功获取的锁，便于后续释放
+        LockOptions options = buildLockOptions(annotation);
         List<LockKey> acquiredKeys = new ArrayList<>();
 
-        try {
-            // 步骤3：依次对每个 Key 尝试加锁
-            // 采用全部加锁策略，即必须获取所有锁才算成功
-            for (String lockKey : lockKeys) {
-                // 构建 LockKey 对象，包含锁的所有属性
-                LockKey key = buildLockKey(lockKey, annotation);
-                // 构建锁选项，包含等待时间、租期等配置
-                LockOptions options = buildLockOptions(annotation);
+        interceptor.beforeLock(keys, options);
 
-                // 尝试获取锁
+        try {
+            for (String lockKey : lockKeys) {
+                LockKey key = buildLockKey(lockKey, annotation);
+
+                interceptor.afterLock(Collections.singletonList(lockKey));
+
                 boolean acquired = doTryLock(provider, key, options);
-                
-                // 加锁失败处理
+
                 if (!acquired) {
-                    // 释放已获取的锁
+                    interceptor.onLockFailure(keys);
                     releaseLocks(provider, acquiredKeys);
-                    // 执行失败回调
                     return handleLockFailure(joinPoint, annotation, lockKeys);
                 }
-                
-                // 记录成功获取的锁
+
+                interceptor.onLockSuccess(Collections.singletonList(lockKey), key);
                 acquiredKeys.add(key);
             }
 
-            // 步骤4：所有锁获取成功，执行业务方法
             return doExecute(joinPoint, annotation);
+        } catch (Throwable t) {
+            interceptor.onException(keys, t);
+            throw t;
         } finally {
-            // 步骤5：释放所有已获取的锁
-            // 无论执行成功还是失败，都要释放锁
             releaseLocks(provider, acquiredKeys);
         }
     }
@@ -130,6 +132,29 @@ public abstract class AbstractLockExecutor implements LockExecutor {
      * @throws Exception 处理过程中可能抛出的异常
      */
     protected abstract Object handleLockFailure(ProceedingJoinPoint joinPoint, Lock annotation, String[] lockKeys) throws Exception;
+
+    /**
+     * 解析拦截器
+     *
+     * <p>从注解配置获取拦截器实例。
+     * 子类需实现具体的获取逻辑（Spring容器或反射创建）。</p>
+     *
+     * @param annotation @Lock 注解配置
+     * @return LockInterceptor 实例
+     */
+    protected abstract LockInterceptor resolveInterceptor(Lock annotation);
+
+    /**
+     * 从切点获取Method对象
+     *
+     * @param joinPoint AOP切点
+     * @return Method对象
+     */
+    protected Method getMethod(ProceedingJoinPoint joinPoint) {
+        org.aspectj.lang.reflect.MethodSignature signature =
+            (org.aspectj.lang.reflect.MethodSignature) joinPoint.getSignature();
+        return signature.getMethod();
+    }
 
     /**
      * 构建 LockKey 对象
