@@ -95,7 +95,8 @@ public class RedisTemplateLockProvider extends AbstractLockProvider {
             
             local first = redis.call('zrange', queue_key, 0, 0);
             if #first > 0 then
-                redis.call('hset', lock_key, first[1], 'locked');
+                local current_time = redis.call('time')[1] * 1000 + redis.call('time')[2] / 1000;
+                redis.call('hset', lock_key, first[1], current_time + tonumber(ARGV[2]));
             else
                 redis.call('del', lock_key);
             end;
@@ -422,8 +423,10 @@ public class RedisTemplateLockProvider extends AbstractLockProvider {
 
         cancelExpirationRenewal(key, lockName);
 
+        long leaseTime = leaseTimes.getOrDefault(key, DEFAULT_LEASE_TIME);
+
         switch (lockType) {
-            case FAIR -> unlockFair(key, lockName);
+            case FAIR -> unlockFair(key, lockName, leaseTime);
             case READ -> unlockRead(key, lockName);
             case WRITE -> unlockWrite(key, lockName);
             default -> unlockReentrant(key, lockName);
@@ -447,12 +450,13 @@ public class RedisTemplateLockProvider extends AbstractLockProvider {
         leaseTimes.remove(key);
     }
 
-    private void unlockFair(String key, String requester) {
+    private void unlockFair(String key, String requester, long leaseTime) {
         String queueKey = key + ":queue";
         redisTemplate.execute(
                 fairUnlockScript,
                 Arrays.asList(key, queueKey),
-                requester
+                requester,
+                String.valueOf(leaseTime)
         );
         cancelExpirationRenewal(key, requester);
     }

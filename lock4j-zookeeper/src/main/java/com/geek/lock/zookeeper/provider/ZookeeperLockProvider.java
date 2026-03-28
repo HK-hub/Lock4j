@@ -22,6 +22,7 @@ public class ZookeeperLockProvider extends AbstractLockProvider {
 
     private final CuratorFramework curatorFramework;
     private final ConcurrentHashMap<String, LockHolder> lockCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, InterProcessReadWriteLock> readWriteLockCache = new ConcurrentHashMap<>();
     private final ScheduledExecutorService watchdogScheduler;
 
     public ZookeeperLockProvider(CuratorFramework curatorFramework, LockEventPublisher eventPublisher) {
@@ -42,7 +43,7 @@ public class ZookeeperLockProvider extends AbstractLockProvider {
         long waitTime = options.getWaitTime() <= 0 ? DEFAULT_WAIT_TIMEOUT : convertToMillis(options.getWaitTime(), options.getTimeUnit());
         long leaseTime = convertToMillis(options.getLeaseTime(), options.getTimeUnit());
 
-        LockHolder holder = lockCache.computeIfAbsent(path, k -> new LockHolder(createLock(path, lockType)));
+        LockHolder holder = lockCache.computeIfAbsent(path, k -> new LockHolder(getOrCreateLock(path, lockType)));
 
         InterProcessMutex lock = holder.getLock();
         String lockOwner = Thread.currentThread().getName() + "-" + Thread.currentThread().getId();
@@ -114,10 +115,18 @@ public class ZookeeperLockProvider extends AbstractLockProvider {
                 || lockType == LockType.WRITE;
     }
 
-    private InterProcessMutex createLock(String path, LockType lockType) {
+    private InterProcessMutex getOrCreateLock(String path, LockType lockType) {
         return switch (lockType) {
-            case READ -> new InterProcessReadWriteLock(curatorFramework, path).readLock();
-            case WRITE -> new InterProcessReadWriteLock(curatorFramework, path).writeLock();
+            case READ -> {
+                InterProcessReadWriteLock rwLock = readWriteLockCache.computeIfAbsent(path, 
+                        p -> new InterProcessReadWriteLock(curatorFramework, p));
+                yield rwLock.readLock();
+            }
+            case WRITE -> {
+                InterProcessReadWriteLock rwLock = readWriteLockCache.computeIfAbsent(path, 
+                        p -> new InterProcessReadWriteLock(curatorFramework, p));
+                yield rwLock.writeLock();
+            }
             default -> new InterProcessMutex(curatorFramework, path);
         };
     }

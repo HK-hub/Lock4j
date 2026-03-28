@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
@@ -33,7 +34,7 @@ public class EtcdLockProvider extends AbstractLockProvider {
     public EtcdLockProvider(Client etcdClient, LockEventPublisher eventPublisher) {
         super(eventPublisher);
         this.etcdClient = etcdClient;
-        this.nodeId = generateNodeId();
+        this.nodeId = UUID.randomUUID().toString().replace("-", "");
         this.watchdogScheduler = Executors.newScheduledThreadPool(1, r -> {
             Thread t = new Thread(r, "lock4j-etcd-watchdog");
             t.setDaemon(true);
@@ -41,14 +42,14 @@ public class EtcdLockProvider extends AbstractLockProvider {
         });
     }
 
-    private String generateNodeId() {
-        return UUID.randomUUID().toString().replace("-", "") + ":" + Thread.currentThread().getId();
+    private String getLockOwner() {
+        return nodeId + ":" + Thread.currentThread().getId();
     }
 
     @Override
     protected boolean doTryLock(LockKey lockKey, LockOptions options) throws Exception {
         String key = LOCK_PREFIX + lockKey.getKey();
-        String lockOwner = nodeId + ":" + Thread.currentThread().getId();
+        String lockOwner = getLockOwner();
         
         LockEntry existingEntry = lockEntries.get(key);
         if (existingEntry != null && existingEntry.isOwner(lockOwner)) {
@@ -122,7 +123,7 @@ public class EtcdLockProvider extends AbstractLockProvider {
     @Override
     protected void doUnlock(LockKey lockKey) {
         String key = LOCK_PREFIX + lockKey.getKey();
-        String lockOwner = nodeId + ":" + Thread.currentThread().getId();
+        String lockOwner = getLockOwner();
         
         LockEntry entry = lockEntries.get(key);
         if (entry == null) {
@@ -202,8 +203,8 @@ public class EtcdLockProvider extends AbstractLockProvider {
         private final ByteSequence acquiredKey;
         private final long leaseId;
         private final String owner;
-        private int holdCount = 1;
-        private ScheduledFuture<?> watchdogFuture;
+        private final AtomicInteger holdCount = new AtomicInteger(1);
+        private volatile ScheduledFuture<?> watchdogFuture;
 
         public LockEntry(ByteSequence acquiredKey, long leaseId, String owner) {
             this.acquiredKey = acquiredKey;
@@ -216,11 +217,11 @@ public class EtcdLockProvider extends AbstractLockProvider {
         }
 
         public void incrementHoldCount() {
-            holdCount++;
+            holdCount.incrementAndGet();
         }
 
         public int decrementHoldCount() {
-            return --holdCount;
+            return holdCount.decrementAndGet();
         }
 
         public ByteSequence getAcquiredKey() {
